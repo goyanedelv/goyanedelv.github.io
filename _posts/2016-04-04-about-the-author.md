@@ -1,17 +1,17 @@
 ---
 layout: post
 title: "About the Author"
-author: "Paul Le"
+author: "Gonzalo Oyanedel Vial"
 categories: facts
 tags: [sample]
 image: cuba-4.jpg
 ---
 
-Hi there! I'm Paul. I’m a physics major turned programmer. Ever since I first learned how to program while taking a scientific computing for physics course, I have pursued programming as a passion, and as a career. Below is a compilation of some of my favourite things that I have built over the years. You may find everything else on my <a href="http://github.com/lenpaul" target="_blank">Github</a> and <a href="https://codepen.io/lenpaul" target="_blank">Code Pen</a> profiles.
+I am Gonzalo Oyanedel, a Chilean engineering, biochemist and data science enthusiast.
 
-### Jekyll Website Theme for Blogging
+I am currently serving as Research Manager at the Abdul Latif Jameel Poverty Action Lab for Latin America and the Caribbean.
 
-Lagrange is a minimalist Jekyll blog theme that I built from scratch. The purpose of this theme is to provide a simple, clean, content-focused blogging platform for your personal site or blog. This theme is currently being used by about three dozen people, with this number growing every day.
+
 
 <img src="{{ site.github.url }}/assets/img/demo.jpg">
 
