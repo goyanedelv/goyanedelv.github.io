@@ -2,7 +2,7 @@
 layout: post
 title: "About the Author"
 author: "Gonzalo Oyanedel Vial"
-categories: posts
+categories: sample
 tags: [sample]
 image: cuba-4.jpg
 ---
