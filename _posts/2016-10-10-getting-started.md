@@ -2,7 +2,7 @@
 layout: post
 title: "Getting Started"
 author: "Paul Le"
-categories: posts
+categories: sample
 tags: [documentation,sample]
 image: city-2.jpg
 ---
