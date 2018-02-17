@@ -7,6 +7,7 @@ google-ID: 'UA-112060364-2'
 
 menu:
 - {name: 'Posts', folder: 'pages', file: 'posts.html'}
+- {name: 'Resources', folder: 'pages', file: 'resources.html'}
 - {name: 'About Me', folder: 'pages', file: 'about.html'}
 
 # Available social icons are powered by Font Awesome, so you can use any icon that they offer
