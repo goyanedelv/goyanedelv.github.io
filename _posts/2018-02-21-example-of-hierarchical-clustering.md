@@ -29,3 +29,61 @@ My guess is that McQuitty methods does a wonderful job comparing to the actual e
 This is just my favourite dendrogram ;)
 
 <img src="{{ site.github.url }}/assets/img/dendrogram.png">
+
+
+###Do it by yourself!
+
+[Here](https://goyanedelv.github.io/assets/documents/lingT.csv) you can find the databse of 100 concatenated words for 39 languages.
+
+Try this code on R:
+```R
+	library(stringdist)
+
+	data=read.csv("lingT.csv")
+	data2=subset(data,Consider==1)
+
+	dimens=length(data2$Consider)
+
+	dist_matrix=matrix(, nrow = dimens, ncol = dimens)
+
+	for (i in 1:dimens){#you can do this in the former line but I like loops <3
+		for (j in 1:dimens){
+			dist_matrix[i,j]=stringdist(data2[i,2],data2[j,2])
+		}
+	}
+
+	colnames(dist_matrix)=data2$Lang
+
+	Matriz_Idiomas=as.dist(dist_matrix)
+
+	par(mfrow=c(2, 2))
+
+	hc1 <- hclust(Matriz_Idiomas,method="mcquitty")#,members=data$Lang)
+	hcp1=plot(hc1,main="Method: McQuitty",
+		xlab=NULL,ylab="Distancia relativa",type = "unrooted",sub="")
+
+
+	hc2 <- hclust(Matriz_Idiomas,method="average")#,members=data$Lang)
+	hcp2=plot(hc2,main="Method: Average",
+		xlab=NULL,ylab="Distancia relativa",type = "unrooted",sub="")
+
+
+	hc3 <- hclust(Matriz_Idiomas,method="single")#,members=data$Lang)
+	hcp3=plot(hc3,main="Method: Single",
+		xlab=NULL,ylab="Distancia relativa",type = "unrooted",sub="")
+
+
+	hc4 <- hclust(Matriz_Idiomas,method="complete")#,members=data$Lang)
+	hcp4=plot(hc4,main="Method: Complete",
+		xlab=NULL,ylab="Distancia relativa", sub="")
+
+		library("ape")
+colors = c("red", "blue", "green", "black","brown","steelblue","darkorange",
+	"tomato","purple","gray")
+clus4 = cutree(hc1, 10)#9)
+pdf('ddg2.pdf')
+plot(as.phylo(hc1), type = "fan", tip.color = colors[clus4],
+     label.offset = 1, cex = 0.7)
+
+```
+
