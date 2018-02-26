@@ -11,7 +11,7 @@ I am Gonzalo Oyanedel, a Chilean engineering, biochemist and data science enthus
 
 I am currently serving as Research Manager at the Abdul Latif Jameel Poverty Action Lab for Latin America and the Caribbean.
 
-<iframe src="https://goyanedelv.github.io/nh_test/" height="200" width="300"></iframe>
+<iframe src="https://goyanedelv.github.io/nh_test/" height="600" width="600"></iframe>
 
 
 <img src="{{ site.github.url }}/assets/img/demo.jpg">
