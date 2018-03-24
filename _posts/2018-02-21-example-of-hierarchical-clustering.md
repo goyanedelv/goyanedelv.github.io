@@ -31,7 +31,7 @@ This is just my favourite dendrogram ;)
 <img src="{{ site.github.url }}/assets/img/dendrogram.png">
 
 
-###Do it by yourself!
+### Do it by yourself!
 
 [Here](https://goyanedelv.github.io/assets/documents/lingT.csv) you can find the databse of 100 concatenated words for 39 languages.
 
