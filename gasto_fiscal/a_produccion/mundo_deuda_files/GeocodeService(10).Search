@@ -1,0 +1,45 @@
+/**/_xdc_._viq2we && _xdc_._viq2we( {
+   "results" : [
+      {
+         "address_components" : [
+            {
+               "long_name" : "Corea del Sur",
+               "short_name" : "KR",
+               "types" : [ "country", "political" ]
+            }
+         ],
+         "formatted_address" : "Corea del Sur",
+         "geometry" : {
+            "bounds" : {
+               "northeast" : {
+                  "lat" : 38.63400000000001,
+                  "lng" : 131.1603
+               },
+               "southwest" : {
+                  "lat" : 33.0041,
+                  "lng" : 124.5863
+               }
+            },
+            "location" : {
+               "lat" : 35.907757,
+               "lng" : 127.766922
+            },
+            "location_type" : "APPROXIMATE",
+            "viewport" : {
+               "northeast" : {
+                  "lat" : 38.63400000000001,
+                  "lng" : 131.1603
+               },
+               "southwest" : {
+                  "lat" : 33.0041,
+                  "lng" : 124.5863
+               }
+            }
+         },
+         "place_id" : "ChIJm7oRy-tVZDURS9uIugCbJJE",
+         "types" : [ "country", "political" ]
+      }
+   ],
+   "status" : "OK"
+}
+ )

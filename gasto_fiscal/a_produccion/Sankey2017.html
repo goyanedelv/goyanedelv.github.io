@@ -1,0 +1,216 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!-- saved from url=(0064)http://127.0.0.1:23555/custom/googleVis/SankeyID22d084b306f.html -->
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>SankeyID22d084b306f</title>
+
+<style type="text/css">
+body {
+  color: #444444;
+  font-family: Arial,Helvetica,sans-serif;
+  font-size: 75%;
+  }
+  a {
+  color: #4D87C7;
+  text-decoration: none;
+}
+</style>
+<b>Ingresos y Gastos, ejercicio 2017</b>
+
+<script type="text/javascript" src="./Sankey2017_files/saved_resource"></script><link type="text/css" href="./Sankey2017_files/ui+es_419.css" rel="stylesheet"><script type="text/javascript" src="./Sankey2017_files/d3,d3sankey,format+es_419,default+es_419,ui+es_419,sankey+es_419.I.js.download"></script><link href="./Sankey2017_files/tooltip.css" rel="stylesheet" type="text/css"></head>
+<body><center>
+ <!-- Sankey generated in R 3.4.2 by googleVis 0.6.2 package -->
+<!-- Sat May 05 17:01:12 2018 -->
+
+<!-- jsHeader -->
+<script type="text/javascript">
+ 
+// jsData 
+function gvisDataSankeyID22d084b306f () {
+var data = new google.visualization.DataTable();
+var datajson =
+[
+ [
+"Tesoreria",
+"Ciudadania",
+1091982
+],
+[
+"Tesoreria",
+"Deuda",
+1295053
+],
+[
+"Tesoreria",
+"Educacion",
+9264055
+],
+[
+"Tesoreria",
+"Industria y Hacienda",
+1477616
+],
+[
+"Tesoreria",
+"Infraestructura",
+2857628
+],
+[
+"Tesoreria",
+"Interior y Gobierno",
+4203427
+],
+[
+"Tesoreria",
+"Inversion",
+5745
+],
+[
+"Tesoreria",
+"Medio Ambiente",
+51302
+],
+[
+"Tesoreria",
+"Organismo Autonomo",
+895092
+],
+[
+"Tesoreria",
+"Organismos Internacionales",
+3484
+],
+[
+"Tesoreria",
+"Otros ",
+4600239
+],
+[
+"Tesoreria",
+"Salud",
+4683330
+],
+[
+"Tesoreria",
+"Seguridad Social",
+9473601
+],
+[
+"Tesoreria",
+"Devolucion y Credito de Impuestos",
+2357813
+],
+[
+"Endeudamiento",
+"Tesoreria",
+6444909
+],
+[
+"Impuesto a la Renta",
+"Tesoreria",
+13481917
+],
+[
+"Impuestos Productos Especificos",
+"Tesoreria",
+2747407
+],
+[
+"IVA",
+"Tesoreria",
+15498034
+],
+[
+"Otros",
+"Tesoreria",
+3344635
+],
+[
+"Otros Impuestos",
+"Tesoreria",
+725143
+],
+[
+"Venta o Rescate de Titulos y Valores",
+"Tesoreria",
+3207148
+] 
+];
+data.addColumn('string','From');
+data.addColumn('string','To');
+data.addColumn('number','Monto');
+data.addRows(datajson);
+return(data);
+}
+ 
+// jsDrawChart
+function drawChartSankeyID22d084b306f() {
+var data = gvisDataSankeyID22d084b306f();
+var options = {};
+options["width"] = 400;
+options["height"] = 400;
+options["sankey"] = {link: {color: { fill: '#1b4687' } },
+                            node: { color: { fill: '#a61d4c' },
+                            label: { color: '#000000' } }};
+
+    var chart = new google.visualization.Sankey(
+    document.getElementById('SankeyID22d084b306f')
+    );
+    chart.draw(data,options);
+
+}
+  
+// jsDisplayChart
+(function() {
+var pkgs = window.__gvisPackages = window.__gvisPackages || [];
+var callbacks = window.__gvisCallbacks = window.__gvisCallbacks || [];
+var chartid = "sankey";
+  
+// Manually see if chartid is in pkgs (not all browsers support Array.indexOf)
+var i, newPackage = true;
+for (i = 0; newPackage && i < pkgs.length; i++) {
+if (pkgs[i] === chartid)
+newPackage = false;
+}
+if (newPackage)
+  pkgs.push(chartid);
+  
+// Add the drawChart function to the global list of callbacks
+callbacks.push(drawChartSankeyID22d084b306f);
+})();
+function displayChartSankeyID22d084b306f() {
+  var pkgs = window.__gvisPackages = window.__gvisPackages || [];
+  var callbacks = window.__gvisCallbacks = window.__gvisCallbacks || [];
+  window.clearTimeout(window.__gvisLoad);
+  // The timeout is set to 100 because otherwise the container div we are
+  // targeting might not be part of the document yet
+  window.__gvisLoad = setTimeout(function() {
+  var pkgCount = pkgs.length;
+  google.load("visualization", "1", { packages:pkgs, callback: function() {
+  if (pkgCount != pkgs.length) {
+  // Race condition where another setTimeout call snuck in after us; if
+  // that call added a package, we must not shift its callback
+  return;
+}
+while (callbacks.length > 0)
+callbacks.shift()();
+} });
+}, 100);
+}
+ 
+// jsFooter
+</script>
+ 
+<!-- jsChart -->  
+<script type="text/javascript" src="./Sankey2017_files/jsapi"></script>
+ 
+<!-- divChart -->
+  
+<div id="SankeyID22d084b306f" style="width: 400; height: 400;"><div style="position: relative;"><div dir="ltr" style="position: relative; width: 400px; height: 400px;"><div aria-label="Un gráfico" style="position: absolute; left: 0px; top: 0px; width: 100%; height: 100%;"><svg width="400" height="400" aria-label="Un gráfico" style="overflow: hidden;"><defs id="defs"></defs><g><path d="M205,306.8863069872693C266.6666666666667,306.8863069872693,328.3333333333333,342.16018426910483,390,342.16018426910483L390,349.0076219640969C328.3333333333333,349.0076219640969,266.6666666666667,313.7337446822614,205,313.7337446822614Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,298.76548198354885C266.6666666666667,298.76548198354885,328.3333333333333,324.03935926538446,390,324.03935926538446L390,332.16018426910483C328.3333333333333,332.16018426910483,266.6666666666667,306.8863069872692,205,306.8863069872692Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,54.726122718164376C266.6666666666667,54.726122718164376,328.3333333333333,-2.842170943040401e-14,390,-2.842170943040401e-14L390,58.09165299014083C328.3333333333333,58.09165299014083,266.6666666666667,112.81777570830523,205,112.81777570830523Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,289.4998681756991C266.6666666666667,289.4998681756991,328.3333333333333,304.7737454575347,390,304.7737454575347L390,314.03935926538446C328.3333333333333,314.03935926538446,266.6666666666667,298.76548198354885,205,298.76548198354885Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,256.79565940723285C266.6666666666667,256.79565940723285,328.3333333333333,252.06953668906846,390,252.06953668906846L390,269.9887237136393C328.3333333333333,269.9887237136393,266.6666666666667,274.71484643180366,205,274.71484643180366Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,230.43743693841236C266.6666666666667,230.43743693841236,328.3333333333333,215.71131422024797,390,215.71131422024797L390,242.06953668906846C328.3333333333333,242.06953668906846,266.6666666666667,256.79565940723285,205,256.79565940723285Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,319.6682508828346C266.6666666666667,319.6682508828346,328.3333333333333,384.9421281646702,390,384.9421281646702L390,384.9781530529538C328.3333333333333,384.9781530529538,266.6666666666667,319.70427577111826,205,319.70427577111826Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,319.34655396051494C266.6666666666667,319.34655396051494,328.3333333333333,374.6204312423505,390,374.6204312423505L390,374.9421281646702C328.3333333333333,374.9421281646702,266.6666666666667,319.6682508828346,205,319.6682508828346Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,313.7337446822614C266.6666666666667,313.7337446822614,328.3333333333333,359.0076219640969,390,359.0076219640969L390,364.6204312423505C328.3333333333333,364.6204312423505,266.6666666666667,319.34655396051494,205,319.34655396051494Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,319.70427577111826C266.6666666666667,319.70427577111826,328.3333333333333,394.97815305295387,390,394.97815305295387L390,395C328.3333333333333,395,266.6666666666667,319.7261227181644,205,319.7261227181644Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,172.22341847047056C266.6666666666667,172.22341847047056,328.3333333333333,137.49729575230612,390,137.49729575230612L390,166.3437876675325C328.3333333333333,166.3437876675325,266.6666666666667,201.06991038569694,205,201.06991038569694Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,201.06991038569691C266.6666666666667,201.06991038569691,328.3333333333333,176.34378766753252,390,176.34378766753252L390,205.71131422024797C328.3333333333333,205.71131422024797,266.6666666666667,230.43743693841236,205,230.43743693841236Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,112.81777570830523C266.6666666666667,112.81777570830523,328.3333333333333,68.09165299014083,390,68.09165299014083L390,127.49729575230614C328.3333333333333,127.49729575230614,266.6666666666667,172.22341847047056,205,172.22341847047056Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M205,274.71484643180366C266.6666666666667,274.71484643180366,328.3333333333333,279.9887237136393,390,279.9887237136393L390,294.7737454575347C328.3333333333333,294.7737454575347,266.6666666666667,289.4998681756991,205,289.4998681756991Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M10,251.7271360894713C71.66666666666666,251.7271360894713,133.33333333333331,236.44927280344405,195,236.44927280344405L195,276.86304594933273C133.33333333333331,276.86304594933273,71.66666666666666,292.14090923535997,10,292.14090923535997Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M10,157.18674378762495C71.66666666666666,157.18674378762495,133.33333333333331,151.90888050159774,195,151.90888050159774L195,236.44927280344405C133.33333333333331,236.44927280344405,71.66666666666666,241.72713608947126,10,241.72713608947126Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M10,363.22485190438596C71.66666666666666,363.22485190438596,133.33333333333331,317.9469886183588,195,317.9469886183588L195,335.17501825189225C133.33333333333331,335.17501825189225,71.66666666666666,380.45288153791944,10,380.45288153791944Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M10,50.003986004191574C71.66666666666666,50.003986004191574,133.33333333333331,54.726122718164376,195,54.726122718164376L195,151.90888050159774C133.33333333333331,151.90888050159774,71.66666666666666,147.18674378762495,10,147.18674378762495Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M10,302.14090923535997C71.66666666666666,302.14090923535997,133.33333333333331,276.86304594933273,195,276.86304594933273L195,297.83608376038626C133.33333333333331,297.83608376038626,71.66666666666666,323.1139470464135,10,323.1139470464135Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M10,390.45288153791944C71.66666666666666,390.45288153791944,133.33333333333331,335.17501825189225,195,335.17501825189225L195,339.7221367139728C133.33333333333331,339.7221367139728,71.66666666666666,395,10,395Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path><path d="M10,333.1139470464135C71.66666666666666,333.1139470464135,133.33333333333331,297.83608376038626,195,297.83608376038626L195,317.9469886183587C133.33333333333331,317.9469886183587,71.66666666666666,353.22485190438596,10,353.22485190438596Z" stroke="none" stroke-width="0" fill-opacity="0.6" fill="#1b4687"></path></g><g><text text-anchor="start" x="211" y="200.7241297160686" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Tesoreria</text><text text-anchor="end" x="384" y="349.0839031166009" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Ciudadania</text><text text-anchor="end" x="384" y="331.59977176724465" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Deuda</text><text text-anchor="end" x="384" y="32.5458264950704" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Educaci�n</text><text text-anchor="end" x="384" y="312.9065523614596" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Industria y Hacienda</text><text text-anchor="end" x="384" y="264.52913020135384" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Infraestructura</text><text text-anchor="end" x="384" y="232.3904254546582" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Interior y Gobierno</text><text text-anchor="end" x="384" y="388.46014060881197" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Inversion</text><text text-anchor="end" x="384" y="378.28127970351034" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Medio Ambiente</text><text text-anchor="end" x="384" y="365.3140266032237" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Organismo Autonomo</text><text text-anchor="end" x="384" y="398.48907652647694" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Organismos Internacionales</text><text text-anchor="end" x="384" y="155.42054170991932" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Otros </text><text text-anchor="end" x="384" y="194.52755094389025" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Salud</text><text text-anchor="end" x="384" y="101.29447437122349" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Seguridad Social</text><text text-anchor="end" x="384" y="290.881234585587" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Devolucion y Credito de Impuestos</text><text text-anchor="start" x="16" y="275.4340226624156" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Endeudamiento</text><text text-anchor="start" x="16" y="202.9569399385481" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Impuesta a la Renta</text><text text-anchor="start" x="16" y="375.33886672115267" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Impuestos Productos Especificos</text><text text-anchor="start" x="16" y="102.09536489590826" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">IVA</text><text text-anchor="start" x="16" y="316.12742814088676" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Otros</text><text text-anchor="start" x="16" y="396.2264407689597" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Otros Impuestos</text><text text-anchor="start" x="16" y="346.66939947539976" font-family="sans-serif" font-size="10" stroke="none" stroke-width="0" fill="#000000">Venta o Rescate de Titulos y Valores</text><rect x="195" y="54.726122718164376" width="10" height="284.9960139958084" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#4285f4"></rect><rect x="390" y="342.16018426910483" width="10" height="6.847437694992095" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#5e97f5"></rect><rect x="390" y="324.03935926538446" width="10" height="8.12082500372039" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#db4437"></rect><rect x="390" y="-2.842170943040401e-14" width="10" height="58.09165299014086" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#e06055"></rect><rect x="390" y="304.7737454575347" width="10" height="9.2656138078498" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#f4b400"></rect><rect x="390" y="252.06953668906846" width="10" height="17.9191870245708" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#f5bf26"></rect><rect x="390" y="215.71131422024797" width="10" height="26.358222468820493" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#0f9d58"></rect><rect x="390" y="384.9421281646702" width="10" height="0.03602488828362518" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#33ab71"></rect><rect x="390" y="374.6204312423505" width="10" height="0.321696922319676" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#ab47bc"></rect><rect x="390" y="359.0076219640969" width="10" height="5.612809278253547" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#b762c6"></rect><rect x="390" y="394.97815305295387" width="10" height="0.021846947046153198" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#00acc1"></rect><rect x="390" y="137.49729575230612" width="10" height="28.846491915226387" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#26b8ca"></rect><rect x="390" y="176.34378766753252" width="10" height="29.367526552715457" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#ff7043"></rect><rect x="390" y="68.09165299014083" width="10" height="59.40564276216532" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#ff855f"></rect><rect x="390" y="279.9887237136393" width="10" height="14.78502174389541" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#9e9d24"></rect><rect x="0" y="251.7271360894713" width="10" height="40.413773145888676" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#acab44"></rect><rect x="0" y="157.18674378762495" width="10" height="84.54039230184631" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#5c6bc0"></rect><rect x="0" y="363.22485190438596" width="10" height="17.22802963353347" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#7481c9"></rect><rect x="0" y="50.003986004191574" width="10" height="97.18275778343336" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#f06292"></rect><rect x="0" y="302.14090923535997" width="10" height="20.97303781105356" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#f279a2"></rect><rect x="0" y="390.45288153791944" width="10" height="4.547118462080559" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#00796b"></rect><rect x="0" y="333.1139470464135" width="10" height="20.110904857972482" stroke="none" stroke-width="0" fill-opacity="0.8" fill="#268d81"></rect></g><g></g><g></g><g></g><g></g><g></g></svg><div aria-label="Una representación en forma de tabla de los datos del gráfico" style="position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden;">[object Object]</div></div></div><div aria-hidden="true" style="display: none; position: absolute; top: 410px; left: 410px; white-space: nowrap; font-family: Arial; font-size: 8px;">-._.-*^*-._.-*^*-._.-</div><div></div></div></div>
+  <!-- <div><span>Data: flujo2017 • Chart ID: <a href="http://127.0.0.1:23555/custom/googleVis/Chart_SankeyID22d084b306f.html">SankeyID22d084b306f</a> • <a href="https://github.com/mages/googleVis">googleVis-0.6.2</a></span><br> 
+htmlFooter -->
+<span> 
+  
+</span></div>
+
+
+</center></body></html>

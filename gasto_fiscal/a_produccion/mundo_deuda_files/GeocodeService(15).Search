@@ -1,0 +1,45 @@
+/**/_xdc_._nrz822 && _xdc_._nrz822( {
+   "results" : [
+      {
+         "address_components" : [
+            {
+               "long_name" : "Estados Federados de Micronesia",
+               "short_name" : "FM",
+               "types" : [ "country", "political" ]
+            }
+         ],
+         "formatted_address" : "Estados Federados de Micronesia",
+         "geometry" : {
+            "bounds" : {
+               "northeast" : {
+                  "lat" : 10.2770863,
+                  "lng" : 163.5177612
+               },
+               "southwest" : {
+                  "lat" : 0.1538084,
+                  "lng" : 136.9226075
+               }
+            },
+            "location" : {
+               "lat" : 7.425554,
+               "lng" : 150.550812
+            },
+            "location_type" : "APPROXIMATE",
+            "viewport" : {
+               "northeast" : {
+                  "lat" : 10.2770863,
+                  "lng" : 163.5177612
+               },
+               "southwest" : {
+                  "lat" : 0.1538084,
+                  "lng" : 136.9226075
+               }
+            }
+         },
+         "place_id" : "ChIJE8hYrMW12WURJWWk-s2NelQ",
+         "types" : [ "country", "political" ]
+      }
+   ],
+   "status" : "OK"
+}
+ )

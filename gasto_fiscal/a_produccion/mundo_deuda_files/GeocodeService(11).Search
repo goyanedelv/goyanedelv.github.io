@@ -1,0 +1,45 @@
+/**/_xdc_._eugj7x && _xdc_._eugj7x( {
+   "results" : [
+      {
+         "address_components" : [
+            {
+               "long_name" : "Kosovo",
+               "short_name" : "XK",
+               "types" : [ "country", "political" ]
+            }
+         ],
+         "formatted_address" : "Kosovo",
+         "geometry" : {
+            "bounds" : {
+               "northeast" : {
+                  "lat" : 43.2676851,
+                  "lng" : 21.7898669
+               },
+               "southwest" : {
+                  "lat" : 41.8576408,
+                  "lng" : 20.014284
+               }
+            },
+            "location" : {
+               "lat" : 42.6026359,
+               "lng" : 20.902977
+            },
+            "location_type" : "APPROXIMATE",
+            "viewport" : {
+               "northeast" : {
+                  "lat" : 43.2676851,
+                  "lng" : 21.7898669
+               },
+               "southwest" : {
+                  "lat" : 41.8576408,
+                  "lng" : 20.014284
+               }
+            }
+         },
+         "place_id" : "ChIJ8X2_VPN6UxMRkRfDq9_u_78",
+         "types" : [ "country", "political" ]
+      }
+   ],
+   "status" : "OK"
+}
+ )

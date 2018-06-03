@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<meta charset='utf-8'>
+<head>
+<link rel="stylesheet" type="text/css" href="style.css">
+<link href="https://fonts.googleapis.com/css?family=Karla:400,700" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+<div id="chartDeuda" class="grafico"></div>
+<button id="checkDeuda" class="button">
+	Rellena el gráfico...
+</button>
+<script src="files/d3v4.js"></script>
+<script src='files/graph_draw_it.js'></script>
+<script>
+// create new chart using Chart constructor
+var chartDeuda = new Chart({
+	element: document.querySelector('#chartDeuda'),
+	button_selector: "#checkDeuda",
+	color: 0xffff00,
+	breakYear: 2010,
+	bachelet1: true,
+    pinera1: true,
+    bachelet2: true,
+    y_range: [0, 70],
+
+    data: [
+  // {"year": 2000,    "debt": 13.2},
+  // {"year": 2001,    "debt": 14.5},
+  // {"year": 2002,    "debt": 15.2},
+  // {"year": 2003,    "debt": 12.7},
+  // {"year": 2004,    "debt": 10.3},
+  // {"year": 2005,    "debt": 7},
+  {"year": 2006,    "debt": 5},
+  {"year": 2007,    "debt": 3.9},
+  {"year": 2008,    "debt": 4.9},
+  {"year": 2009,    "debt": 5.8},
+  {"year": 2010,    "debt": 8.6},
+  {"year": 2011,    "debt": 11.1},
+  {"year": 2012,    "debt": 11.9},
+  {"year": 2013,    "debt": 12.7},
+  {"year": 2014,    "debt": 14.9},
+  {"year": 2015,    "debt": 17.3},
+  {"year": 2016,    "debt": 21},
+  {"year": 2017,    "debt": 23.6}
+]
+});
+
+d3.selectAll('#checkDeuda').on('click', function(){
+   chartDeuda.animateData("#checkDeuda");
+});
+</script>
+</body>
+

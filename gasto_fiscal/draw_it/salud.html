@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<meta charset='utf-8'>
+<head>
+<link rel="stylesheet" type="text/css" href="style.css">
+<link href="https://fonts.googleapis.com/css?family=Karla:400,700" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+<div id="chartSalud" class="grafico"></div>
+<button id="checkSalud" class="button">
+	Rellena el gráfico...
+</button>
+
+<script src="files/d3v4.js"></script>
+<script src='files/graph_draw_it.js'></script>
+<script>
+// create new chart using Chart constructor
+var chartSalud = new Chart({
+	element: document.querySelector('#chartSalud'),
+	button_selector: "#checkSalud",
+	color: 0xffff00,
+	breakYear: 2010,
+	bachelet1: false,
+    pinera1: true,
+    bachelet2: true,
+    y_range: [0, 12],
+    data: [
+  {"year": 2009,    "debt": 1.97},
+  {"year": 2010,    "debt": 2.4},
+  {"year": 2011,    "debt": 2.89},
+  {"year": 2012,    "debt": 3.04},
+  {"year": 2013,    "debt": 3.18},
+  {"year": 2014,    "debt": 3.36},
+  {"year": 2015,    "debt": 4},
+  {"year": 2016,    "debt": 4.26},
+  {"year": 2017,    "debt": 4.68}
+]
+});
+
+d3.selectAll('#checkSalud').on('click', function(){
+   chartSalud.animateData("#checkSalud");
+});
+
+</script>
+</body>
+

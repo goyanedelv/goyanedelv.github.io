@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<meta charset='utf-8'>
+<head>
+<link rel="stylesheet" type="text/css" href="style.css">
+<link href="https://fonts.googleapis.com/css?family=Karla:400,700" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+<!-- 	<div class="titulo"><h1>Deuda Pública (% GDP) </h1></div>
+-->
+<div class="container">
+	<p class="section" style="display: inline;float:right;"> <i>Por Fernando Irarrázaval y Gonzalo Oyanedel</i></p>
+	<br>
+	<br>
+
+		<div class="section">
+		<h1 class="titulo" style="display: inline;"> Gasto público en Chile</h1>
+
+		<p>Entender el gasto gubernamental es importante para saber <b>qué hace tu gobierno con los impuestos que pagas.</b></p>
+		<p>Pero para nosotros mostrartelo no es suficiente. Por eso <b>pondremos a prueba tus conocimientos interactivamente.</b></p>
+		<p>Son 10 los apredizajes que queremos que te lleves:</p>
+		<ul>
+			<li>Los gastos más grandes del gobierno son salud y seguridad social</li>
+			<li>La mayoría de los ingresos del gobierno son por el IVA</li>
+			<li>La deuda pública ha subido pero sigue siendo baja</li>
+			<li>Los ingresos del cobre están estrictamente relacionados con el deficit fiscal</li>
+
+		</ul>
+<!-- 		<p>*<i>Busca las palabras <a href="#" class="tip">subrayadas<span>¡Buscame!</span></a> para definiciones o instrucciones. </i></p>
+ -->	</div>
+	<br><br>
+
+	<div class="section">
+		<h2 class="titulo">Cápitulo I: Introducción a los ingresos y gastos públicos</h2>
+		<br>
+		<iframe src="../../Sankey2017.html" frameborder="" height="450px" width="100%"></iframe>
+		<br>
+		<img src="../../cobre_y_deficit.png" alt="">
+
+	</div>
+	<br><br>	
+	<div class="section">
+		<h2 class="titulo">Cápitulo I: Deuda Pública</h2>
+		
+		<p> La deuda pública es cuánto el gobierno chileno le debe a personas, gobiernos o empresas (nacionales o extranjeras). Usualemente se mide como un porcentaje del <a href="#" class="tip">Producto Interno Bruto (PIB).<span>Valor de los bienes y servicios producidos en Chile en un año</span></a></p>
+	</div>
+		<div class="section">
+		<h3 class="titulo" style="display: inline;"> ¿Cuánto crees que cambió la <b>deuda pública (como % del PIB)</b> en los gobiernos de <b>Piñera</b> (2010-2014) y el segundo gobierno de <b>Bachelet</b> (2014-2018)? </h3>
+		<p style="display: inline;" class="instrucciones"><a href="#" class="tip instrucciones"> 
+ Instrucciones <i style="font-size:18px" class="fa">&#xf05a;</i><span>1. Arrastra el mouse para completar los años faltantes en el gráfico</br></br> 2. Cuándo llenes todos los años el botón cambiará de color y podrás ver qué tanto sabías sobre deuda pública.</span></a></p>
+		</br></br>
+
+		<div id="chartDeuda" class="grafico"></div>
+		<button id="checkDeuda" class="button">
+			Rellena el gráfico...
+		</button>
+
+		<div id="chartDeuda2"></div>
+	</div>
+
+	<br><br>
+
+	<div class="section">
+		<h2 class="titulo">Cápitulo II: Gasto Social</h2>
+		
+		<p> Para muchos analistas el 2011 fue un año bisagra. ¿Cuánto crees que cambió el gasto público en educación? <a href="#" class="tip">Producto Interno Bruto (PIB).<span>Valor de los bienes y servicios producidos en Chile en un año</span></a></p>
+			<br><br>	<br><br>	<br><br>	<br><br>
+	</div>
+
+
+	<br><br>
+
+	
+	<div class="section">
+		<h2 class="titulo">Cápitulo III: Sigue explorando</h2>
+		
+		<p> Para muchos analistas el 2011 fue un año bisagra. ¿Cuánto crees que cambió el gasto público en educación? <a href="#" class="tip">Producto Interno Bruto (PIB).<span>Valor de los bienes y servicios producidos en Chile en un año</span></a></p>
+			<br><br>	<br><br>	<br><br>	<br><br>
+	</div>
+</div>
+<script src="d3v4.js"></script>
+<script src='graph_draw_it.js'></script>
+<script>
+// create new chart using Chart constructor
+var chartDeuda = new Chart({
+	element: document.querySelector('#chartDeuda'),
+	button_selector: "#checkDeuda",
+	color: 0xffff00,
+	breakYear: 2010,
+    data: [
+  // {"year": 2000,    "debt": 13.2},
+  // {"year": 2001,    "debt": 14.5},
+  // {"year": 2002,    "debt": 15.2},
+  // {"year": 2003,    "debt": 12.7},
+  // {"year": 2004,    "debt": 10.3},
+  // {"year": 2005,    "debt": 7},
+  {"year": 2006,    "debt": 5},
+  {"year": 2007,    "debt": 3.9},
+  {"year": 2008,    "debt": 4.9},
+  {"year": 2009,    "debt": 5.8},
+  {"year": 2010,    "debt": 8.6},
+  {"year": 2011,    "debt": 11.1},
+  {"year": 2012,    "debt": 11.9},
+  {"year": 2013,    "debt": 12.7},
+  {"year": 2014,    "debt": 14.9},
+  {"year": 2015,    "debt": 17.3},
+  {"year": 2016,    "debt": 21},
+  {"year": 2017,    "debt": 23.6}
+]
+});
+
+d3.selectAll('#checkDeuda').on('click', function(){
+   chartDeuda.animateData("#checkDeuda");
+});
+
+// redraw chart on each resize
+// in a real-world example, it might be worth ‘throttling’ this
+// more info: http://sampsonblog.com/749/simple-throttle-function
+// this.wait = false;   
+// var limit = 10;   
+// var self = this; 
+// d3.select(window).on('resize', function(){
+// 			    console.log(self.wait)
+
+//         if (!self.wait) {                  // If we're not waiting
+//             chartDeuda.setCompleted(false);
+// 		    chartDeuda.draw(); 
+//           // Execute users function
+//             self.wait = true;              // Prevent future invocations
+//             setTimeout(function () {  // After a period of time
+//                 self.wait = false;         // And allow future invocations
+//             }, limit);
+//         }
+// });
+
+</script>
+</body>
+

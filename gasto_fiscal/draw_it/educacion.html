@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<meta charset='utf-8'>
+<head>
+<link rel="stylesheet" type="text/css" href="style.css">
+<link href="https://fonts.googleapis.com/css?family=Karla:400,700" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+<div id="chartEducacion" class="grafico"></div>
+<button id="checkEducacion" class="button">
+	Rellena el gráfico...
+</button>
+
+<script src="files/d3v4.js"></script>
+<script src='files/graph_draw_it.js'></script>
+<script>
+// create new chart using Chart constructor
+var chartEducacion = new Chart({
+	element: document.querySelector('#chartEducacion'),
+	button_selector: "#checkEducacion",
+	color: 0xffff00,
+	breakYear: 2010,
+	bachelet1: false,
+    pinera1: true,
+    bachelet2: true,
+    y_range: [0, 12],
+
+    data: [
+  {"year": 2009,    "debt": 5.13},
+  {"year": 2010,    "debt": 5.8},
+  {"year": 2011,    "debt": 6.38},
+  {"year": 2012,    "debt": 6.87},
+  {"year": 2013,    "debt": 7.64},
+  {"year": 2014,    "debt": 7.59},
+  {"year": 2015,    "debt": 8.22},
+  {"year": 2016,    "debt": 8.92},
+  {"year": 2017,    "debt": 9.26}
+]
+});
+
+d3.selectAll('#checkEducacion').on('click', function(){
+   chartEducacion.animateData("#checkEducacion");
+});
+
+</script>
+</body>
+

@@ -1,0 +1,45 @@
+/**/_xdc_._xam004 && _xdc_._xam004( {
+   "results" : [
+      {
+         "address_components" : [
+            {
+               "long_name" : "Congo",
+               "short_name" : "CG",
+               "types" : [ "country", "political" ]
+            }
+         ],
+         "formatted_address" : "Congo",
+         "geometry" : {
+            "bounds" : {
+               "northeast" : {
+                  "lat" : 3.707791,
+                  "lng" : 18.650421
+               },
+               "southwest" : {
+                  "lat" : -5.0964,
+                  "lng" : 11.1182001
+               }
+            },
+            "location" : {
+               "lat" : -0.228021,
+               "lng" : 15.827659
+            },
+            "location_type" : "APPROXIMATE",
+            "viewport" : {
+               "northeast" : {
+                  "lat" : 3.707791,
+                  "lng" : 18.650421
+               },
+               "southwest" : {
+                  "lat" : -5.0964,
+                  "lng" : 11.1182001
+               }
+            }
+         },
+         "place_id" : "ChIJCROj3WOlYBoRj2z8FM96AVU",
+         "types" : [ "country", "political" ]
+      }
+   ],
+   "status" : "OK"
+}
+ )

@@ -1,0 +1,10 @@
+if (window['google'] != undefined && window['google']['loader'] != undefined) {
+if (!window['google']['visualization']) {
+window['google']['visualization'] = {};
+google.visualization.Version = '1.0';
+google.visualization.JSHash = '40ff64b1d9d6b3213524485974f36cc0';
+google.visualization.LoadArgs = 'file\x3dvisualization\x26v\x3d1\x26packages\x3dgeochart\x26async\x3d2';
+}
+google.loader.writeLoadTag("css", google.loader.ServiceBase + "/api/visualization/1.0/40ff64b1d9d6b3213524485974f36cc0/ui+es_419.css", true);
+google.loader.writeLoadTag("script", google.loader.ServiceBase + "/api/visualization/1.0/40ff64b1d9d6b3213524485974f36cc0/format+es_419,default+es_419,ui+es_419,geochart+es_419.I.js", true);
+}
