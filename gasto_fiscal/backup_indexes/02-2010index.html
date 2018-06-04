@@ -5,7 +5,6 @@
 <link href="https://fonts.googleapis.com/css?family=Karla:400,700" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
-<title>Gasto Fiscal</title>
 <body>
 <!-- 	<div class="titulo"><h1>Deuda Pública (% GDP) </h1></div>
 -->
@@ -13,6 +12,7 @@
 	<p class="section" style="display: inline;float:right;"> <i>Por <a href="http://www.fernandoi.cl">Fernando Irarrázaval</a> y <a href="http://goyanedelv.github.io">Gonzalo Oyanedel</a></i></p>
 	<br>
 	<br>
+
 		<div class="section">
 		<h1 class="titulo" style="display: inline;"> ¿Qué hacen con mis impuestos?</h1>
 		<br>
@@ -23,9 +23,9 @@
 		<p>Pero para nosotros mostrartelo no es suficiente. Por eso <b>pondremos a prueba tus conocimientos interactivamente.</b></p>
 		<p>Son 3 los apredizajes que queremos que te lleves:</p>
 		<ul>
-			<li>La deuda pública ha subido pero sigue siendo baja si lo comparamos con otros países de la región.</li>
-			<li>Los gastos más grandes del gobierno son salud, educación, y seguridad social.</li>
-			<li>La mayoría de los ingresos del gobierno son por el Impuesto al Valor Agregado (IVA).</li>
+			<li>Los gastos más grandes del gobierno son salud, educación, y seguridad social</li>
+			<li>La mayoría de los ingresos del gobierno son por el IVA</li>
+			<li>La deuda pública ha subido pero sigue siendo baja</li>
 			<!--<li>Los ingresos del cobre están estrictamente relacionados con el deficit fiscal</li> -->
 
 		</ul>
@@ -34,7 +34,39 @@
 	<br><br>
 
 	<div class="section">
-		<h2 class="titulo">Cápitulo I: Deuda Pública</h2>
+		<h2 class="titulo">Cápitulo I: Introducción a los ingresos y gastos públicos</h2>
+		<br><br>
+
+		El gasto público funciona como una empresa cualquiera. Esta empresa, el Estado, tiene fuentes de financiamiento e ítems de gasto. Todos los ingresos van a parar a la Tesorería General de la República y luego esta institución se encarga de repartirlo en las distintas agencias. Mira este gráfico: 
+		<br><br>
+
+		<iframe src="a_produccion/Sankey2017.html" frameborder="" height="450px" width="100%" align="middle"></iframe>
+		<br><br>
+
+		¿Quién decide cómo se gasta el dinero? Todos los años el Poder Ejecutivo (el Presidente y sus Ministros) envían al congreso una ley con una propuesta de distribución del gasto público. Esta ley suele tener cientos -hasta miles- de hojas. Para que te hagas una idea, a continuación una visualización simplificada de la caracterización del presupuesto que se envía a discutir al congreso cada año.
+		
+		<br><br>
+		<iframe src="a_produccion/wholedatabase2.html" frameborder="" height="600px" width="100%"></iframe>
+		<br><br>
+
+		Como esta distribución es muy compleja, hemos re-clasificado las partidas presupuestarias para que las puedas entender mejor. 
+		Para los ingresos, hemos escogido 7 clasificadores que engloban 31 fuentes de financiamiento. <br>
+
+		<a href="a_produccion/Clasificacion_igresos.html">Descripción de clasificación de ingresos.</a> <br> <br>
+
+		Para los egresos o gastos, hemos identificado 12 sectores que incluyen 47 ítems de gastos. <br>
+
+		<a href="a_produccion/Clasificacion_egresos.html">Descripción de clasificación de egresos.</a> <br>
+
+		Vale, ¿se entiende? ¡Genial!
+
+
+
+
+	</div>
+	<br><br>	
+	<div class="section">
+		<h2 class="titulo">Cápitulo II: Deuda Pública</h2>
 		
 		<p>Últimamente ha habido mucha controversia con respecto a la deuda pública y la rápidez de su aumento. En esta sección <b>pondremos a prueba tus conocimientos sobre la deuda pública.</b></p>
 
@@ -53,13 +85,12 @@
 
 	<br><br>
 
-
 	<div class="section">
-		<h2 class="titulo">Cápitulo II: Gasto Social</h2> 
+		<h2 class="titulo">Cápitulo III: Gasto Social</h2> 
 		<br><br>
 
-		<p> Para muchos analistas el 2011 fue un año bisagra. Partiremos probando tus conicimientos sobre el gasto educación.</p>
-		<p> Para que tengas una idea un aumento de un punto porcentual del PIB es un aumento en, aproximadamente, 2.800 millones de dolares (1.800.000 millones de pesos). </p>
+		<p> Para muchos analistas el 2011 fue un año bisagra. ¿Cuánto crees que cambió el gasto público en educación? <a href="#" class="tip">Producto Interno Bruto (PIB).<span>Valor de los bienes y servicios producidos en Chile en un año</span></a></p>
+		<br><br>	
 
 		<h3 class="titulo" style="display: inline;"> ¿Cuánto crees tú que cambió el <b>gasto en educación (como % del PIB)</b> en los gobiernos de <b>Piñera</b> (2010-2014) y el segundo gobierno de <b>Bachelet</b> (2014-2018)? </h3>
 		<p style="display: inline;" class="instrucciones"><a href="#" class="tip instrucciones"> 
@@ -68,16 +99,12 @@
 		<iframe src="draw_it/educacion.html" frameborder="" height="550px" width="100%" align="middle"></iframe>
 		<br><br>
 
-		<p> Ahora responde lo mismo pero para salud!</p>
-
 		<h3 class="titulo" style="display: inline;"> ¿Cuánto crees tú que cambió el <b>gasto en salud (como % del PIB)</b> en los gobiernos de <b>Piñera</b> (2010-2014) y el segundo gobierno de <b>Bachelet</b> (2014-2018)? </h3>
 		<p style="display: inline;" class="instrucciones"><a href="#" class="tip instrucciones"> 
  Instrucciones <i style="font-size:18px" class="fa">&#xf05a;</i><span>1. Arrastra el mouse para completar los años faltantes en el gráfico</br></br> 2. Cuándo llenes todos los años el botón cambiará de color y podrás ver qué tanto sabías.</span></a></p>
 		</br></br>
 		<iframe src="draw_it/salud.html" frameborder="" height="550px" width="100%" align="middle"></iframe>
 		<br><br>
-
-		<p>¿Qué dices en seguridad social?</p>
 
 
 				<h3 class="titulo" style="display: inline;"> ¿Cuánto crees tú que cambió el <b>gasto en seguridad social (como % del PIB)</b> en los gobiernos de <b>Piñera</b> (2010-2014) y el segundo gobierno de <b>Bachelet</b> (2014-2018)? </h3>
@@ -87,39 +114,10 @@
 		<iframe src="draw_it/gastosocial.html" frameborder="" height="550px" width="100%" align="middle"></iframe>
 		<br><br>
 
+
+
+	
 	</div>
-
-	<div class="section">
-		<h2 class="titulo">Cápitulo III: Introducción a los ingresos y gastos públicos</h2>
-		<br><br>
-
-		Ahora que ya te hemos mostrado interactivamente los cambios en el presupuesto del gobierno, ahora entraremos a más detalles.
-
-		El gasto público puede ser visto como una empresa cualquiera. Esta empresa, el Estado, tiene fuentes de financiamiento e ítems de gasto. Todos los ingresos van a parar a la Tesorería General de la República y luego esta institución se encarga de repartirlo en las distintas agencias. Mira este gráfico: 
-		<br><br>
-
-		<iframe src="a_produccion/Sankey2017.html" frameborder="" height="450px" width="100%" align="middle"></iframe>
-		<br><br>
-
-		¿Quién decide cómo se gasta el dinero? Todos los años el Poder Ejecutivo (el Presidente y sus Ministros) envían al congreso una ley con una propuesta de distribución del gasto público. Esta ley suele tener cientos -hasta miles- de páginas. Para que te hagas una idea, a continuación una visualización simplificada de la caracterización del presupuesto que se envía a discutir al congreso cada año.
-		
-		<br><br>
-		<iframe src="a_produccion/wholedatabase3.html" frameborder="" height="600px" width="100%"></iframe>
-		<br><br>
-
-		Como esta distribución <b>es muy compleja</b>, hemos re-clasificado las partidas presupuestarias para que las puedas entender mejor. 
-		Para los ingresos, hemos escogido 7 clasificadores que engloban 31 fuentes de financiamiento. <br>
-
-		<a href="a_produccion/Clasificacion_igresos.html">Descripción de clasificación de ingresos.</a> <br> <br>
-
-		Para los egresos o gastos, hemos identificado 12 sectores que incluyen 47 ítems de gastos. <br>
-
-		<a href="a_produccion/Clasificacion_egresos.html">Descripción de clasificación de egresos.</a> <br>
-
-		Vale, ¿se entiende? ¡Sigamos!
-
-	</div>
-
 
 
 	<br><br>
@@ -128,19 +126,21 @@
 	<div class="section">
 		<h2 class="titulo">Cápitulo IV: Sigue explorando</h2>
 		
+		<p> Para muchos analistas el 2011 fue un año bisagra. ¿Cuánto crees que cambió el gasto público en educación, salud y otros sectores? <!-- <a href="#" class="tip">Producto Interno Bruto (PIB).<span>Valor de los bienes y servicios producidos en Chile en un año</span></a> --></p>
+
 		<p>  Desde 2009, el Gasto Fiscal ha crecido progresivamente.</p>
 		
 		</br></br>
 		<iframe src="a_produccion/chart01.html" frameborder="" height="550px" width="100%" align="middle"></iframe>
 		<br><br>
 
-		<p>  Desde 2009 hasta 2017, el presupuesto ha crecido a una tasa anual compuesta de 6.1%. ¿Qué ítemes de gasto han crecido más?</p>
+		<p>  Desde 2009 hasta 2017, el presupuesto a ha crecido a una tasa anual compuesta de 6.1%. ¿Qué ítemes de gasto han crecido más?</p>
 		
 		</br></br>
 		<iframe src="a_produccion/chart03.html" frameborder="" height="550px" width="100%" align="middle"></iframe>
 		<br><br>
 
-		<p>  En los últimos 8 años, en términos absolutos el fisco ha aumentado más la inversión en Salud y Educación. Si en 2009 el fisco gastaba 5.1 <a href="#" class="tip">billones<span> Un billón es un millón de millones de pesos o 1,000,000,000,000 pesos.</span></a> de pesos al año en Educación, en 2017 este monto ascendía a 9.3 billones. ¡Casi el doble!</p>
+		<p>  En los últimos 8 años, en términos absolutos el fisco a aumentado más la inversión en Salud y Educación. Si en 2009 el fisco gastaba 5.1 billones de pesos al año en Educación, en 2017 este monto ascendía a 9.3 billones. ¡Casi el doble!</p>
 		<p>  Sin embargo en términos relativos los sectores que más han crecido han sido los gastos asociados a inversión, deuda y otros. Para entender la magnitud de estos cambios, estos 3 ítemes juntos sumaban 1.2 billones en 2009 y crecieron hasta 5.9 billones en 2017.</p>
 
 		<p>  Espera un segundo, ¿cómo es que a pesar que el gasto ha crecicido sostenidamente aún no nos hemos desfinanciado? ¿Qué ha pasado con el Producto Interno Bruto?</p>
@@ -151,7 +151,7 @@
 		<iframe src="a_produccion/chart_pib.html" frameborder="" height="550px" width="100%" align="middle"></iframe>
 		<br><br>
 
-		<p>  ¿Cómo el fisco ha sido capaz de aumentar el gasto el 6.1% anual si el PIB ha solo aumentado en 3.3%? La respuesta es sencilla: aumentando el financiamiento vía impuesto y la deuda.</p>
+		<p>  ¿Cómo el fisco ha sido capaz de aumentar el gasto el 6.1% anual si el PIB ha solo aumentado en 3.3% anual? La respuesta es sencilla: aumentando el financiamiento vía impuesto y la deuda.</p>
 
 		</br></br>
 		<iframe src="a_produccion/chart05.html" frameborder="" height="550px" width="100%" align="middle"></iframe>
@@ -181,23 +181,20 @@
 		<p>  Revisemos ahora la información de la Sección IV pero utilizando nuestra nueva noción como porcentaje del PIB.</p>
 		</br></br>
 		<iframe src="a_produccion/chart_pib_percent.html" frameborder="" height="550px" width="100%" align="middle"></iframe>
-		<br>
-
-		<p><b>Anexo: </b><a href="anexo.html">Ver el detalle del gasto absoluto en Educación, Salud y Seguridad Social</a></p>
+		<br><br>
 
 		<p> Y bien, ¿cómo están otros países en gasto público y endeudamiento? Ahora que sabemos medir gasto como porcentaje del PIB nos podemos comparar.</p>
 
 		</br></br>
 		<iframe src="a_produccion/mundo_deuda.html" frameborder="" height="470px" width="100%" align="middle"></iframe>
 		<br><br>
-
-		Aqui vemos que a pesar que la deuda pública subió durante los gobiernos de Piñera y Bachelet, todavía Chile es unos de los países con deuda más baja del mundo.
 		
-		<p> Ya que has aprendido sobre el gasto público y distintas formas de medición, te invitamos a <a href="index.html">hacer de nuevo los gráficos interactivos.</a></p>
+
+		<p> Ya que has aprendido sobre el gasto público y distintas formas de medición, te invitamos a <a href="http://www.fernandoi.cl/gasto_fiscal">hacer de nuevo los gráficos interactivos.</a></p>
 
 	</div>
 
-<a href="tecnica.html">Acerca de este sitio.</a>
+
 
 </div>
 </body>
