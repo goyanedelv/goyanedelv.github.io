@@ -8,6 +8,14 @@ body{
   background-repeat: repeat;
 }
 
+iframe {
+  border: none;
+  display:block;
+  margin: 0;
+  padding: 0;
+
+}
+
 .container{
   padding: 10px 10px 10px 10px;
 
@@ -102,6 +110,10 @@ h* {
 
 /*** Tooltips! ***/
 
+.fuente{
+  font-size: 0.8em;
+}
+
 .tip {
   border-bottom: 1px dotted grey;
   position: relative;
@@ -117,7 +129,7 @@ h* {
   padding-left: 1em;
   top: 1.5em;
   left: 2.4em;
-  width: 10em;
+  width: 120%;
   background-color: white;
   border: 1px solid;
   border-radius: 0.5em;

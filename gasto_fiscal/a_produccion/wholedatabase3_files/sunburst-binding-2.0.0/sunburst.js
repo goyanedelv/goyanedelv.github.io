@@ -223,7 +223,7 @@ function draw (el, instance, dispatch_) {
 
     var countString = [
         '<span style = "font-size:.7em">',
-        d3Format.format("1.2s")(d.value) + ' Billones de Pesos ' ,
+        d3Format.format("1.2s")(d.value) + ' de Pesos ',
         '</span>'
       ].join('');
 
@@ -2522,7 +2522,7 @@ var identity = function(x) {
   return x;
 };
 
-var prefixes = ["y","z","a","f","p","n","µ","m","","k","","G","T","P","E","Z","Y"];
+var prefixes = ["y","z","a","f","p","n","µ","m","","k"," Billones","G","T","P","E","Z","Y"];
 
 var formatLocale = function(locale) {
   var group = locale.grouping && locale.thousands ? formatGroup(locale.grouping, locale.thousands) : identity,
