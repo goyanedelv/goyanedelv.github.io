@@ -164,11 +164,8 @@ HTMLWidgets.widget({
 
     // mouseover event handler
     function mouseover() {
-      d3.select(this).select("circle").transition()
-        .duration(750)
-        .attr("r", 9)
-      d3.select(this).select("text").transition()
-        .duration(750)
+  
+      d3.select(this).select("text")
         .attr("dy", ".31em")
         .attr("text-anchor", function(d) { return d.x < 180 ? "start" : "end"; })
         .attr("transform", function(d) { return d.x < 180 ? "translate(8)" : "rotate(180)translate(-8)"; })
@@ -179,11 +176,9 @@ HTMLWidgets.widget({
 
     // mouseout event handler
     function mouseout() {
-      d3.select(this).select("circle").transition()
-        .duration(750)
+      d3.select(this).select("circle")
         .attr("r", 4.5)
-      d3.select(this).select("text").transition()
-        .duration(750)
+      d3.select(this).select("text")
         .attr("dy", ".31em")
         .attr("text-anchor", function(d) { return d.x < 180 ? "start" : "end"; })
         .attr("transform", function(d) { return d.x < 180 ? "translate(8)" : "rotate(180)translate(-8)"; })
