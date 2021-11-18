@@ -7,21 +7,106 @@
   <link rel="stylesheet" type="text/css" href="style/style_new.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.min.css">
   <script defer src="https://use.fontawesome.com/releases/v5.1.0/js/all.js"></script>
+
+
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ" crossorigin="anonymous">
-  <style type="text/css">
-  .newblue{
-    background: #3ABEFF;
-    color: white;
-  }
-  .new-hero-color{
-    background: #c06714;
-  }
-  .is-white{
-    color: white;
-  }
-</style>
+    <style type="text/css">
+      .newblue{
+        background: #3ABEFF;
+        color: white;
+      }
+      .new-hero-color{
+        background: #c06714;
+      }
+      .is-white{
+        color: white;
+      }
+
+      .top-header {
+        background-color: royalblue;
+        color: rgb(255,255,255);
+        height: 3em;
+        left: 0;
+        margin-bottom: 1.25em;
+        position: fixed;
+        right: 0;
+        top: 0;
+        z-index: 10;
+      }
+
+      .hamburger-icon {
+        margin-left: 3m;
+        position: relative;
+      }
+
+      .hamburger-icon label:before {
+        border-bottom: 0.25em solid white;
+        border-top: 0.375em double white;
+        bottom: 0.0875em;
+        content: "";
+        height: 0.125em;
+        position: absolute;
+        right: 1em;
+        width: 1em;
+      }
+
+      #checkbox-menu {
+        display: none;
+      }
+
+      #checkbox-menu:checked + nav {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      nav.mobile-menu {
+        background-color: black;
+        height: auto;
+        left: 0;
+        right: 0;
+        opacity: 0;
+        position: fixed;
+        top: 3em;
+        visibility: hidden;
+        z-index: 5;
+      }
+
+      nav.mobile-menu ul li {
+        border-bottom: 1px solid lightgray;
+        font-size: 0.875em;
+        height: 2.285714285714286em;
+        line-height: 2.285714285714286em;
+        padding-left: 1.142857142857143em;
+      }
+
+      nav.mobile-menu ul li a {
+        color: lightgray;
+        text-decoration: none;
+      }
+
+      nav.mobile-menu ul li a:hover {
+        color: white;
+      }
+    </style>
 </head>
-<body>
+  <body>
+    <header class="top-header">
+      <h1>Menu</h1>
+      <div class="hamburger-icon">
+        <label for="checkbox-menu"></label>
+      </div>
+
+      <input id="checkbox-menu" type="checkbox">
+        <nav class="mobile-menu">
+          <ul>
+            <li><a href="https://forms.gle/8s2apbAopb1XEdAs8">Agregar un punto</a></li>
+            <li><a href="/workout/reglas">Ver reglas</a></li>
+            <li><a href="/workout/multas">Ver multas</a></li>
+          </ul>
+        </nav>
+    </header>
+
+
   <section class="hero is-medium new-hero-color">
     <div class="hero-body">
       <div class="container">
@@ -42,11 +127,12 @@
     </div>  
   </section>
 
+  <!-- 
   <div>
     <a href="/workout/reglas">Ver las reglas</a> |
     <a href="https://forms.gle/8s2apbAopb1XEdAs8">Agregar un punto</a> |
     <a href="/workout/multas">Ver multas</a>
-  </div>
+  </div>-->
 
 <div class="tabs is-small is-right">
 </div>
