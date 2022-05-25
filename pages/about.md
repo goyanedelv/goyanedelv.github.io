@@ -5,9 +5,7 @@ title: About
 
 Hi there,
 
-My name is Gonzalo Oyanedel Vial. I'm a Chilean biochemist, engineer and data science enthusiast.
-
-I'm currently an MBA and Master in Computer Science Candidate at The University of Chicago (Chicago Booth School of Business and the Department of Computer Science).
+My name is Gonzalo Oyanedel Vial. I'm a Chilean biochemist, engineer and computer scientist.
 
 Connect with me in [LinkedIn](https://www.linkedin.com/in/gonzalo-oyanedel-vial/).
 
