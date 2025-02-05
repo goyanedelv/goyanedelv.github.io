@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Example of Hierarchichal Clustering and String Distance"
+title: "Tracing the evolutionary history of languages"
 author: "Gonzalo"
 categories: sample
 tags: [documentation,sample]
