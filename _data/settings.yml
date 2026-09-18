@@ -1,28 +1,11 @@
-# Change to true for Disqus comments
-disqus:
-  comments: false
-  disqus_shortname: 'millennial-3'
-
 google-ID: 'UA-112060364-2'
 
 menu:
-- {name: 'Posts', folder: 'pages', file: 'posts.html'}
-- {name: 'Resources', folder: 'pages', file: 'resources.html'}
-- {name: 'About Me', folder: 'pages', file: 'about.html'}
+- {name: 'Home', url: '/'}
+- {name: 'About Me', url: '/pages/about.html'}
 
 # Available social icons are powered by Font Awesome, so you can use any icon that they offer
 social:
+- {icon: 'github', link: 'https://github.com/goyanedelv'}
+- {icon: 'linkedin', link: 'https://www.linkedin.com/in/gonzalo-oyanedel-vial/'}
 - {icon: 'twitter', link: 'https://twitter.com/goyanedelv'}
-
-# - {icon: 'rss-square', link: 'rss-feed.xml'}
-
-# Customize site text
-pagination:
-  next_page: 'Newer'
-  previous_page: 'Older'
-
-sharing_button_prompt: 'Feel free to share!'
-
-related_posts: 'You may also enjoy...'
-
-post_date_prefix: 'Written on'

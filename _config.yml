@@ -1,23 +1,21 @@
 # Site Build Settings
 
-# jekyll-paginate configuration
-paginate:            5
-
 # Build settings
 markdown:            kramdown
 highlighter:         rouge
 permalink:           none
-plugins:             [jekyll-paginate, jekyll-sitemap, jekyll-feed, jekyll-seo-tag]
+plugins:             [jekyll-sitemap, jekyll-seo-tag]
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - LICENSE.md
+  - README.md
 
 sass:
   sass_dir: assets/css
   style: :nested
 
-# Customise atom feed settings (this is where Jekyll-Feed gets configuration information)
-title:		           "Gonzalo Oyanedel"
-description:	       "This page was built using Jekyll and Millenial theme"
-author:              "Paul Le"
-
-# RSS 2.0 can be used instead of Atom by uncommenting following two lines
-#feed:
-#  path: rss-feed.xml
+title:             "Gonzalo Oyanedel"
+description:        "Personal site"
+author:              "Gonzalo Oyanedel Vial"

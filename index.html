@@ -1,1 +1,113 @@
-<meta http-equiv="refresh" content="0; URL='https://goyanedelv.github.io/pages/posts.html'" />
+---
+layout: default
+title: Home
+---
+
+<div class="home-intro">
+  <h1>Gonzalo Oyanedel Vial</h1>
+  <p>Biochemist, engineer and computer scientist. A few things I have built and written.</p>
+</div>
+
+<div class="project-grid">
+
+  <a class="project-card" href="{{ site.github.url }}/gasto_fiscal/index.html">
+    <h2>Gasto fiscal</h2>
+    <p>¿Qué hacen con mis impuestos? Plataforma educativa sobre el gasto público en Chile, 2009&ndash;2017.</p>
+  </a>
+
+  <a class="project-card" href="{{ site.github.url }}/languages/index.html">
+    <h2>Languages</h2>
+    <p>Tracing the evolutionary history of languages with sequence alignment techniques.</p>
+  </a>
+
+  <a class="project-card" href="{{ site.github.url }}/redes-neuronales/index.html">
+    <h2>Clases de Redes Neuronales</h2>
+    <p>Laboratorios interactivos del curso de redes neuronales artificiales.</p>
+  </a>
+
+  <a class="project-card" href="{{ site.github.url }}/santiago/index.html">
+    <h2>Mapa de Santiago con precios</h2>
+    <p>Mapa interactivo de precios de vivienda en Santiago.</p>
+  </a>
+
+  <a class="project-card project-card-wide" href="https://github.com/goyanedelv" target="_blank" rel="noopener">
+    <h2>GitHub <span class="project-ext">&#8599;</span></h2>
+    <p>Código, datos y experimentos. Todo lo demás vive en mis repositorios.</p>
+  </a>
+
+  <a class="project-card project-card-wide" href="https://gonzaloo.substack.com/" target="_blank" rel="noopener" id="substack-card">
+    <h2>Substack <span class="project-ext">&#8599;</span></h2>
+    <p class="project-sub">Los dados no juegan a Dios &mdash; Biología, Inteligencia Artificial y Ciencia Ficción.</p>
+    <div class="substack-latest" id="substack-latest">
+      <span class="substack-label">Último post</span>
+      <span class="substack-title" id="substack-title">cargando&hellip;</span>
+      <span class="substack-date" id="substack-date"></span>
+    </div>
+  </a>
+
+</div>
+
+<script>
+(function () {
+  var FEED = 'https://gonzaloo.substack.com/feed';
+
+  var box = document.getElementById('substack-latest');
+  var titleEl = document.getElementById('substack-title');
+  var dateEl = document.getElementById('substack-date');
+  var cardEl = document.getElementById('substack-card');
+
+  function giveUp() {
+    if (box && box.parentNode) { box.parentNode.removeChild(box); }
+  }
+
+  // "2026-04-27 00:59:29" and RFC-822 dates both end up here; only the day matters.
+  function formatDate(raw) {
+    if (!raw) { return ''; }
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+    var d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(raw);
+    if (isNaN(d.getTime())) { return ''; }
+    return d.toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  function show(title, link, date) {
+    if (!title) { giveUp(); return; }
+    titleEl.textContent = title;
+    dateEl.textContent = formatDate(date);
+    if (link) { cardEl.setAttribute('href', link); }
+  }
+
+  // Substack's feed sends no CORS headers, so it is read through a public proxy.
+  function viaJson() {
+    return fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(FEED))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.status !== 'ok' || !d.items || !d.items.length) { throw new Error('bad payload'); }
+        var it = d.items[0];
+        show(it.title, it.link, it.pubDate);
+      });
+  }
+
+  function viaXml() {
+    return fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(FEED))
+      .then(function (r) {
+        if (!r.ok) { throw new Error(r.status); }
+        return r.text();
+      })
+      .then(function (text) {
+        var item = new DOMParser().parseFromString(text, 'application/xml').querySelector('item');
+        if (!item) { throw new Error('no items'); }
+        function txt(sel) {
+          var n = item.querySelector(sel);
+          return n ? n.textContent.trim() : '';
+        }
+        show(txt('title'), txt('link'), txt('pubDate'));
+      });
+  }
+
+  if (window.fetch && window.DOMParser) {
+    viaJson().catch(viaXml).catch(giveUp);
+  } else {
+    giveUp();
+  }
+})();
+</script>

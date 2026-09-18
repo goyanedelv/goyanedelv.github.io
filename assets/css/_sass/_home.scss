@@ -1,51 +1,92 @@
-.featured-posts {
-  height: 400px;
-  margin: 5px 10px 10px;
+/*
+  Home: intro + project grid
+*/
+
+.home-intro {
+  padding: 10px 10px 0px;
+  margin-bottom: 10px;
+}
+.home-intro h1 {
+  margin-bottom: 0;
+}
+.home-intro p {
+  margin-top: 0.5rem;
+  color: #555;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-gap: 20px;
   padding: 10px;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
 }
-.featured-posts h2 span {
-   display: inline-block;
-   color: white;
-   font: bold 24px/45px Helvetica, Sans-Serif;
-   letter-spacing: -1px;
-   background: rgb(0, 0, 0); /* fallback color */
-   background: rgba(0, 0, 0, 0.7);
-   padding: 10px;
-   margin-top: 320px;
+@media (max-width: $tablet-width) {
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
 }
-.featured-posts span a {
-  color: white;
+
+.project-card {
+  display: block;
+  padding: 24px;
+  border: 1px solid #e0e0e0;
+  text-decoration: none;
+  color: $brand-color;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.featured-posts h1 {
-  margin: 10px;
+.container a.project-card {
+  text-decoration: none;
+}
+.project-card:hover {
+  border-color: #999;
+  box-shadow: 0 4px 10px -6px #999;
+}
+.project-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+  font-size: 1.35rem;
+}
+.project-card p {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  font-size: 0.95rem;
+  color: #555;
+}
+.project-ext {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.project-card-wide {
+  grid-column: 1 / -1;
 }
 
 /*
-  Pagination
+  Latest Substack post
 */
 
-.pagination {
-  text-align: center;
+.substack-latest {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e0e0e0;
 }
-.pagination a {
-  text-decoration: none;
-}
-.pagination-button {
+.substack-label {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: #999;
-  border: 1px solid #e0e0e0;
-  padding: 15px 45px;
-  margin-top: 10px;
-  margin-bottom: 10px;
-  display: inline-block;
-  font-size: 16px;
-  font-weight: bold;
+  margin-bottom: 4px;
 }
-.pagination-active {
-  color: black;
+.substack-title {
+  display: block;
+  font-family: $body-font-family;
+  font-size: 1.05rem;
+  line-height: 1.4;
 }
-.pagination-active:hover {
-  background-color: #e0e0e0;
+.substack-date {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #999;
 }

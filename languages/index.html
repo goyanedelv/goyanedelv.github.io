@@ -1,38 +1,35 @@
-<!DOCTYPE html>
-<html>
-<body>
+---
+layout: misc
+title: Tracing the evolutionary history of languages
+---
 
-<h1>Tracing evolution of languages using sequence alignment techniques </h1>
-<p>Zoe Huang and Gonzalo Oyanedel, 2022</p>
+<p><em>A simple method for comparing the historical evolution of languages.<br>
+Zoe Huang and Gonzalo Oyanedel, 2022</em></p>
 
-<div>
-    <a href="/languages/levenshtein_Swadesh.html">Levenshtein, Swadesh List</a>
-</div>
-<div>
-    <a href="/languages/levenshtein_OurFather.html">Levenshtein, Lord's Prayer</a>
-</div>
-<div>
-    <a href="/languages/levenshtein_Starman.html">Levenshtein, Starman</a>
-</div>
-<div>
-    <a href="/languages/dl_Swadesh.html">Damerau–Levenshtein, Swadesh List</a>
-</div>
-<div>
-    <a href="/languages/dl_OurFather.html">Damerau–Levenshtein, Lord's Prayer</a>
-</div>
-<div>
-    <a href="/languages/dl_Swadesh.html">Damerau–Levenshtein, Starman</a>
-</div>
-<div>
-    <a href="/languages/nwl_Swadesh.html">NWL, Swadesh List</a>
-</div>
-<div>
-    <a href="/languages/nwl_OurFather.html">NWL, Lord's Prayer</a>
-</div>
-<div>
-    <a href="/languages/nwl_Starman.html">NWL, Starman</a>
-</div>
+<img src="{{ site.github.url }}/assets/img/dendrogram.png" alt="Dendrogram of language similarity">
 
+<p>In 2015 I had the chance to travel through northern Europe, Russia, Mongolia, South Korea and Japan. During the trip, one thing that caught my attention was the diversity of languages and the historical forces that led to all those different ways of communicating. I became aware of linguistic theory and its classifications. German, English, Danish, Norwegian and Swedish all come from the Germanic line, a branch of the Indo-European languages. Finnish and Estonian are closely related to each other and, despite Finland and Estonia sharing a geographic region with Sweden and Norway, they come from a whole different branch, not even related to the Indo-European languages: they come from the Uralic family.</p>
 
-</body>
-</html>
+<p>During my visit to Russia I learnt the Cyrillic alphabet and understood the deep connections between Slavic culture and the way Cyrillic was forged. I was then struck by how the Soviet Union introduced the Cyrillic alphabet into the Mongolian language, and how this resembles the case in which the Arabs introduced the Arabic alphabet to Farsi (or Persian). Neither Farsi and Arabic nor Russian and Mongolian are related languages; still, it is amazing to see how historical forces play a key role in shaping the way we communicate.</p>
+
+<p>After that long trip I became thoughtful about the historical evolution of languages, and I borrowed some tools from my background as a biochemist. Indeed, to compare two related (or not-that-related) species, biologists use clustering algorithms based on the similarities or dissimilarities of genetic code.</p>
+
+<p>Inspired by that idea from bioinformatics, I assembled 100 common concepts based on what linguists call the Swadesh list, a set of concepts compiled for historical-comparative linguistics studies and named after the American linguist Morris Swadesh.</p>
+
+<p>For 27 languages, we built dendrograms based on 3 &ldquo;challenges&rdquo; (the Swadesh list, the Lord's Prayer and <em>Starman</em> by David Bowie) and 3 algorithms (Levenshtein, Needleman&ndash;Wunsch and Damerau&ndash;Levenshtein). Below you can see the resulting dendrograms:</p>
+
+<ul>
+  <li><a href="{{ site.github.url }}/languages/levenshtein_Swadesh.html">Levenshtein, Swadesh list</a></li>
+  <li><a href="{{ site.github.url }}/languages/levenshtein_OurFather.html">Levenshtein, Lord's Prayer</a></li>
+  <li><a href="{{ site.github.url }}/languages/levenshtein_Starman.html">Levenshtein, Starman</a></li>
+  <li><a href="{{ site.github.url }}/languages/dl_Swadesh.html">Damerau&ndash;Levenshtein, Swadesh list</a></li>
+  <li><a href="{{ site.github.url }}/languages/dl_OurFather.html">Damerau&ndash;Levenshtein, Lord's Prayer</a></li>
+  <li><a href="{{ site.github.url }}/languages/dl_Starman.html">Damerau&ndash;Levenshtein, Starman</a></li>
+  <li><a href="{{ site.github.url }}/languages/nwl_Swadesh.html">Needleman&ndash;Wunsch, Swadesh list</a></li>
+  <li><a href="{{ site.github.url }}/languages/nwl_OurFather.html">Needleman&ndash;Wunsch, Lord's Prayer</a></li>
+  <li><a href="{{ site.github.url }}/languages/nwl_Starman.html">Needleman&ndash;Wunsch, Starman</a></li>
+</ul>
+
+<h3>Do it yourself</h3>
+
+<p><a href="https://github.com/goyanedelv/tracing-evolution-of-languages">Here</a> is the repo and the data to reproduce these analyses.</p>
