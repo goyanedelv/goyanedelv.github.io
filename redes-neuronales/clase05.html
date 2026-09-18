@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clase 05 — Modelos de Lenguaje y Decodificación | Laboratorio RNA</title>
+<meta name="description" content="Laboratorio interactivo: entrenador BPE real, modelo de lenguaje autorregresivo, temperatura, top-k, top-p y perplejidad.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<link rel="stylesheet" href="assets/lab.css">
+<script src="assets/lab.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="initKaTeX()"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+    .header-box h1 { background: linear-gradient(135deg, var(--accent-amber), var(--accent-rose)); -webkit-background-clip: text; background-clip: text; }
+    .merge-log { max-height: 240px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 0.78rem; }
+    .merge-log div { padding: 0.28rem 0.5rem; border-radius: 4px; }
+    .merge-log div:nth-child(odd) { background: rgba(255,255,255,0.03); }
+    .gen-text { font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 2.1; }
+    .gen-text .w { padding: 0.15rem 0.35rem; border-radius: 4px; background: rgba(57,135,229,.18); margin-right: 0.2rem; }
+    .gen-text .w.new { background: rgba(25,158,112,.25); color: #6ee7b7; }
+    .prob-slider { display: grid; grid-template-columns: 82px 1fr 58px; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+
+<nav>
+    <a href="index.html" class="nav-brand"><span>&larr;</span> Laboratorio RNA</a>
+    <div class="nav-links"></div>
+</nav>
+
+<div class="container" id="main">
+    <div class="header-box">
+        <h1>Clase 05 — Modelos de lenguaje y decodificación</h1>
+        <p>Un entrenador de BPE que cuenta pares y fusiona de verdad sobre el texto que escribas; un modelo de
+           lenguaje pequeño pero real, con sus probabilidades contadas de un corpus; y los tres mandos de
+           decodificación —temperatura, top-k y top-p— implementados como en las librerías.</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn" data-tab="tab1">1 · Tokenización BPE</button>
+        <button class="tab-btn" data-tab="tab2">2 · Generación autorregresiva</button>
+        <button class="tab-btn" data-tab="tab3">3 · Temperatura, top-k y top-p</button>
+        <button class="tab-btn" data-tab="tab4">4 · Entropía y perplejidad</button>
+        <button class="tab-btn" data-tab="tab5">5 · Compruébalo</button>
+    </div>
+
+    <!-- ══════════════ TAB 1 ══════════════ -->
+    <div id="tab1" class="tab-content">
+        <div class="card">
+            <div class="card-title">Entrenador de BPE <span class="pill info">algoritmo real</span></div>
+            <p class="card-sub">El algoritmo completo: parte de caracteres sueltos, cuenta todos los pares
+                adyacentes, fusiona <strong>el más frecuente</strong> y repite. Escribe lo que quieras y verás
+                aparecer las subpalabras que <em>tu</em> texto justifica.</p>
+
+            <div class="grid-2">
+                <div>
+                    <div class="control-group">
+                        <label for="bpeText">Corpus de entrenamiento</label>
+                        <textarea id="bpeText" rows="4">las redes neuronales convolucionales procesan informacion no lineal, y las redes recurrentes procesan secuencias</textarea>
+                    </div>
+                    <div class="btn-group mt-1">
+                        <button class="btn btn-sm btn-outline" data-bpe="apunte">Corpus del apunte (low, lower, newest, widest)</button>
+                        <button class="btn btn-sm btn-outline" data-bpe="default">Texto por defecto</button>
+                    </div>
+                    <div class="controls mt-2">
+                        <div class="control-group">
+                            <label for="bpeSteps">Fusiones realizadas <output id="v_bpeSteps">0</output></label>
+                            <input type="range" id="bpeSteps" min="0" max="40" step="1" value="0">
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-sm" id="bpeNext">Siguiente fusión →</button>
+                            <button class="btn btn-sm btn-outline" id="bpePlay">Ejecutar todas</button>
+                            <button class="btn btn-sm btn-outline" id="bpeReset">Volver a caracteres</button>
+                        </div>
+                    </div>
+                    <div class="stat-row mt-2">
+                        <div class="stat"><div class="stat-label">Vocabulario</div><div class="stat-value" id="bpeVocab">—</div>
+                            <div class="stat-hint">símbolos distintos</div></div>
+                        <div class="stat"><div class="stat-label">Tokens totales</div><div class="stat-value" id="bpeTokens">—</div>
+                            <div class="stat-hint">longitud de la secuencia</div></div>
+                        <div class="stat"><div class="stat-label">Compresión</div><div class="stat-value" id="bpeRatio">—</div>
+                            <div class="stat-hint">letras ÷ tokens (el marcador · cuenta como token)</div></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="matrix-caption" style="text-align:left">Historial de fusiones</div>
+                    <div class="readout merge-log" id="bpeLog"></div>
+                    <div class="matrix-caption mt-2" style="text-align:left">Pares candidatos ahora mismo</div>
+                    <div class="readout" id="bpeCandidates"></div>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <div class="matrix-caption" style="text-align:left">Tokenización resultante
+                    <span class="small text-sub">(· marca el final de palabra)</span></div>
+                <div class="token-row" id="bpeOut" style="max-height:190px;overflow-y:auto"></div>
+            </div>
+
+            <div class="grid-2 mt-3">
+                <div class="chart-box" style="height:200px"><canvas id="bpeCurve"></canvas></div>
+                <div class="note">
+                    <strong>La compensación de 5.1.1.</strong> A nivel de <em>caracteres</em> el vocabulario es
+                    minúsculo pero las secuencias son larguísimas. A nivel de <em>palabras</em> las secuencias son
+                    cortas pero el vocabulario es enorme y cualquier palabra nueva es un &lt;UNK&gt;. BPE se sienta en
+                    medio: aprende las piezas frecuentes y deja que las raras se compongan de trozos.
+                    La curva muestra cómo cada fusión acorta la secuencia — con rendimientos decrecientes.
+                    <br><br>BPE no es el único: WordPiece fusiona maximizando verosimilitud, y Unigram/SentencePiece
+                    parte de un vocabulario grande y <em>poda</em>.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 2 ══════════════ -->
+    <div id="tab2" class="tab-content">
+        <div class="card">
+            <div class="card-title">Un modelo de lenguaje de verdad (pequeño, pero real)</div>
+            <p class="card-sub">Modelo de bigramas con suavizado, con las probabilidades <strong>contadas de un
+                corpus</strong> incluido en esta página. No hay guion prefijado: cada token se muestrea de la
+                distribución real. La factorización es la de siempre:</p>
+            <div class="formula-box">\[ P(x_1,\dots,x_N) = \prod_{t=1}^{N} P(x_t \mid x_{&lt;t}) \]</div>
+
+            <div class="grid-2">
+                <div>
+                    <div class="controls">
+                        <div class="control-row">
+                            <div class="control-group">
+                                <label for="lmStart">Palabra inicial</label>
+                                <select id="lmStart"></select>
+                            </div>
+                            <div class="control-group">
+                                <label for="lmTemp">Temperatura <output id="v_lmTemp">0.80</output></label>
+                                <input type="range" id="lmTemp" min="0.1" max="2" step="0.05" value="0.8">
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-sm" id="lmStep">Muestrear siguiente token →</button>
+                            <button class="btn btn-sm btn-outline" id="lmGen10">Generar 10</button>
+                            <button class="btn btn-sm btn-outline" id="lmReset">Reiniciar</button>
+                        </div>
+                    </div>
+                    <div class="gen-text mt-3" id="lmSeq"></div>
+                    <div class="readout mt-2" id="lmStats"></div>
+                </div>
+                <div>
+                    <div class="matrix-caption" id="lmCap" style="text-align:left"></div>
+                    <div class="chart-box" style="height:250px"><canvas id="lmCanvas"></canvas></div>
+                    <p class="fig-note">Las continuaciones más probables dado el contexto actual, según los conteos
+                        del corpus. Al muestrear, el token elegido se marca en la secuencia.</p>
+                    <div class="note mt-2">
+                        <strong>Por qué la probabilidad conjunta se desploma.</strong> Multiplicar cientos de números
+                        menores que 1 da un resultado que ningún <span class="mono">float</span> puede representar.
+                        Por eso <em>siempre</em> se trabaja con log-probabilidades: el producto se vuelve suma, y
+                        esa suma es exactamente la entropía cruzada de la pestaña 4.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 3 ══════════════ -->
+    <div id="tab3" class="tab-content">
+        <div class="grid-2 wide-left">
+            <div class="card">
+                <div class="card-title">Distribución tras filtrar</div>
+                <div class="chart-box" style="height:270px"><canvas id="decCanvas"></canvas></div>
+                <div class="legend">
+                    <span class="legend-item"><span class="legend-swatch" style="background:var(--series-1)"></span>sobrevive al filtro</span>
+                    <span class="legend-item"><span class="legend-swatch" style="background:#334155"></span>descartado</span>
+                </div>
+                <p class="fig-note">Las barras son las probabilidades <strong>ya renormalizadas</strong>: lo que
+                    realmente se muestrea. Los tokens descartados aparecen en 0.</p>
+                <div class="chart-box mt-3" style="height:200px"><canvas id="sampleCanvas"></canvas></div>
+                <p class="fig-note">Frecuencias observadas al muestrear repetidamente de la distribución filtrada:
+                    la comprobación empírica de que el filtro hace lo que dice.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Los tres mandos</div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="decPreset">Logits de partida</label>
+                        <select id="decPreset">
+                            <option value="apunte">Ejemplo del apunte: [2, 1, 0, −1]</option>
+                            <option value="wide">Contexto abierto: "el perro corrió hacia el …"</option>
+                            <option value="peaked">Contexto cerrado: "la capital de Francia es …"</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="decT">Temperatura \(T\) <output id="v_decT">1.00</output></label>
+                        <input type="range" id="decT" min="0.1" max="2" step="0.05" value="1">
+                    </div>
+                    <div class="control-group">
+                        <label for="decK">Top-k <output id="v_decK">—</output></label>
+                        <input type="range" id="decK" min="1" max="8" step="1" value="8">
+                    </div>
+                    <div class="control-group">
+                        <label for="decP">Top-p (núcleo) <output id="v_decP">1.00</output></label>
+                        <input type="range" id="decP" min="0.1" max="1" step="0.01" value="1">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm" id="decSample">Muestrear 500 veces</button>
+                        <button class="btn btn-sm btn-outline" id="decReset">Restablecer mandos</button>
+                    </div>
+                </div>
+
+                <div class="table-wrap mt-2">
+                    <table class="data-table">
+                        <thead><tr><th>Token</th><th>logit</th><th>p tras T</th><th>acum.</th><th>final</th></tr></thead>
+                        <tbody id="decTable"></tbody>
+                    </table>
+                </div>
+                <div class="readout mt-2" id="decExplain"></div>
+                <div class="note" id="decNote"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 4 ══════════════ -->
+    <div id="tab4" class="tab-content">
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">Mueve la distribución y mira la perplejidad</div>
+                <p class="card-sub">Arrastra los deslizadores para repartir la probabilidad entre cuatro
+                    continuaciones. Se renormaliza sola.</p>
+                <div id="pplSliders" class="mt-2"></div>
+                <div class="btn-group mt-2">
+                    <button class="btn btn-sm btn-outline" data-ppl="confident">Casi seguro</button>
+                    <button class="btn btn-sm btn-outline" data-ppl="moderate">Duda razonable</button>
+                    <button class="btn btn-sm btn-outline" data-ppl="uniform">Duda total</button>
+                </div>
+                <div class="chart-box mt-3" style="height:200px"><canvas id="pplCanvas"></canvas></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Las métricas</div>
+                <div class="formula-box">
+                    \[ H(P) = -\sum_i P(x_i)\log_2 P(x_i), \qquad \text{PPL} = 2^{H(P)} \]
+                </div>
+                <div class="stat-row">
+                    <div class="stat"><div class="stat-label">Entropía</div><div class="stat-value" id="pplH">—</div>
+                        <div class="stat-hint">bits</div></div>
+                    <div class="stat"><div class="stat-label">Perplejidad</div><div class="stat-value" id="pplV">—</div>
+                        <div class="stat-hint">factor de ramificación</div></div>
+                </div>
+                <div class="readout mt-2" id="pplRead"></div>
+                <div class="note mt-2" id="pplNote"></div>
+
+                <div class="mt-3">
+                    <div class="matrix-caption" style="text-align:left">Referencias de escala</div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Situación</th><th>Entropía</th><th>PPL</th></tr></thead>
+                            <tbody>
+                                <tr><td>Certeza absoluta (p = 1)</td><td class="num">0 bits</td><td class="num">1</td></tr>
+                                <tr><td>Moneda al aire (2 opciones)</td><td class="num">1 bit</td><td class="num">2</td></tr>
+                                <tr><td>8 opciones equiprobables</td><td class="num">3 bits</td><td class="num">8</td></tr>
+                                <tr><td>Vocabulario de 50 000 al azar</td><td class="num">15.6 bits</td><td class="num">50 000</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="fig-note">La perplejidad es "entre cuántas opciones equiprobables está dudando el
+                        modelo". Bajar de PPL 50 000 a PPL 20 es todo el trabajo de un modelo de lenguaje.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 5 ══════════════ -->
+    <div id="tab5" class="tab-content">
+        <div id="quizBox"></div>
+        <div class="card">
+            <div class="card-title">Para seguir jugando</div>
+            <ul class="small text-sub" style="padding-left:1.2rem; display:flex; flex-direction:column; gap:0.4rem">
+                <li>En la 1, carga el corpus del apunte y da dos fusiones: deben salir <span class="mono">es</span> y luego <span class="mono">est</span>, tal como dice 5.1.2.</li>
+                <li>Escribe tu propio nombre repetido diez veces en el corpus y mira cómo BPE lo convierte en un solo token.</li>
+                <li>En la 2, pon la temperatura en 0.1 y luego en 1.8: el mismo modelo pasa de repetirse a decir disparates. No cambió ningún peso.</li>
+                <li>En la 3, con el preset del apunte y \(T=1\), pon top-p = 0.9: debe quedar el núcleo {A, B, C} y p = [0.665, 0.245, 0.090].</li>
+                <li>En la 4, reparte la probabilidad a partes iguales entre 4 tokens: H = 2 bits exactos, PPL = 4.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<footer class="lab-footer"></footer>
+
+<script>
+(function () {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const fmt = Lab.fmt;
+const EOW = '·';
+
+/* ═══════════════ TAB 1 · BPE real ═══════════════ */
+const BPE_DEFAULT = 'las redes neuronales convolucionales procesan informacion no lineal, y las redes recurrentes procesan secuencias';
+const BPE_APUNTE = ('low '.repeat(5) + 'lower '.repeat(2) + 'newest '.repeat(6) + 'widest '.repeat(3)).trim();
+const bpe = { words: [], merges: [], history: [], timer: null };
+
+/** Prepara el corpus: cada palabra, como lista de caracteres + marcador de fin. */
+function bpePrepare(text) {
+    const counts = new Map();
+    (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).forEach(w => counts.set(w, (counts.get(w) || 0) + 1));
+    return [...counts.entries()].map(([w, n]) => ({ sym: [...w, EOW], freq: n, word: w }));
+}
+
+/** Cuenta todos los pares adyacentes, ponderados por la frecuencia de cada palabra. */
+function bpePairCounts(words) {
+    const pairs = new Map();
+    words.forEach(({ sym, freq }) => {
+        for (let i = 0; i < sym.length - 1; i++) {
+            const key = sym[i] + ' ' + sym[i + 1];
+            pairs.set(key, (pairs.get(key) || 0) + freq);
+        }
+    });
+    return pairs;
+}
+
+function bpeApplyMerge(words, a, b) {
+    words.forEach(w => {
+        const out = [];
+        for (let i = 0; i < w.sym.length; i++) {
+            if (i < w.sym.length - 1 && w.sym[i] === a && w.sym[i + 1] === b) { out.push(a + b); i++; }
+            else out.push(w.sym[i]);
+        }
+        w.sym = out;
+    });
+}
+
+/** Ejecuta el algoritmo desde cero hasta `steps` fusiones. */
+function bpeRun(text, steps) {
+    const words = bpePrepare(text);
+    const merges = [], history = [];
+    const stats = (ws) => {
+        const toks = ws.reduce((s, w) => s + w.sym.length * w.freq, 0);
+        const vocab = new Set(ws.flatMap(w => w.sym)).size;
+        return { toks, vocab };
+    };
+    history.push(stats(words));
+
+    for (let s = 0; s < steps; s++) {
+        const pairs = bpePairCounts(words);
+        if (!pairs.size) break;
+        let bestKey = null, bestN = 0;
+        // Desempate por primera aparición: recorremos en orden de inserción.
+        pairs.forEach((n, k) => { if (n > bestN) { bestN = n; bestKey = k; } });
+        if (bestN < 2) break;                       // sin repeticiones no hay nada que comprimir
+        const [a, b] = bestKey.split(' ');
+        bpeApplyMerge(words, a, b);
+        merges.push({ a, b, token: a + b, count: bestN });
+        history.push(stats(words));
+    }
+    return { words, merges, history, pairs: bpePairCounts(words) };
+}
+
+function bpeUpdate() {
+    const text = $('bpeText').value;
+    const steps = +$('bpeSteps').value;
+    $('v_bpeSteps').textContent = steps;
+
+    const { words, merges, history, pairs } = bpeRun(text, steps);
+    bpe.words = words; bpe.merges = merges;
+
+    const totalChars = words.reduce((s, w) => s + w.word.length * w.freq, 0);
+    const cur = history[history.length - 1];
+    $('bpeVocab').textContent = cur.vocab;
+    $('bpeTokens').textContent = cur.toks;
+    $('bpeRatio').textContent = fmt(totalChars / cur.toks, 2);
+
+    $('bpeLog').innerHTML = merges.length
+        ? merges.map((m, i) =>
+            `<div>${String(i + 1).padStart(2)}. ('${m.a}', '${m.b}') → <strong style="color:var(--ok)">'${m.token}'</strong>
+             <span class="text-sub">· ${m.count} ocurrencias</span></div>`).join('')
+        : '<div class="text-sub">Todavía no hay fusiones: el texto está a nivel de caracteres sueltos.</div>';
+    $('bpeLog').scrollTop = $('bpeLog').scrollHeight;
+
+    const top = [...pairs.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5);
+    $('bpeCandidates').innerHTML = top.length
+        ? top.map(([k, n], i) => {
+            const [a, b] = k.split(' ');
+            return `${i === 0 ? '<strong style="color:var(--warn)">→</strong>' : '&nbsp;&nbsp;'} ('${a}', '${b}') : ${n}${i === 0 ? ' <span class="text-sub">← la próxima</span>' : ''}`;
+          }).join('<br>')
+        : '<span class="text-sub">No quedan pares repetidos: el algoritmo se detiene solo.</span>';
+
+    const mergedSet = new Set(merges.map(m => m.token));
+    $('bpeOut').innerHTML = words.slice(0, 40).map(w =>
+        `<span style="display:inline-flex;gap:2px;margin:0 .35rem .35rem 0;align-items:center">` +
+        w.sym.map(s => `<span class="token${mergedSet.has(s) ? ' merged' : ''}">${s}</span>`).join('') +
+        (w.freq > 1 ? `<span class="small text-sub">×${w.freq}</span>` : '') + `</span>`).join('');
+
+    Lab.chart('bpeCurve', {
+        type: 'line',
+        data: {
+            labels: history.map((_, i) => String(i)),
+            datasets: [{ label: 'tokens totales', data: history.map(h => h.toks), borderColor: 'var(--series-2)', pointRadius: 2 }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { x: { title: { display: true, text: 'fusiones aplicadas', color: '#94a3b8' } },
+                      y: { title: { display: true, text: 'longitud de la secuencia', color: '#94a3b8' }, beginAtZero: false } }
+        }
+    });
+}
+
+function bpeInit() {
+    $('bpeText').addEventListener('input', () => { $('bpeSteps').value = 0; bpeUpdate(); });
+    $('bpeSteps').addEventListener('input', bpeUpdate);
+    $('bpeNext').addEventListener('click', () => { $('bpeSteps').value = Math.min(40, +$('bpeSteps').value + 1); bpeUpdate(); });
+    $('bpeReset').addEventListener('click', () => { $('bpeSteps').value = 0; bpeUpdate(); });
+    $('bpePlay').addEventListener('click', () => {
+        if (bpe.timer) { clearInterval(bpe.timer); bpe.timer = null; $('bpePlay').textContent = 'Ejecutar todas'; return; }
+        $('bpePlay').textContent = 'Pausar';
+        bpe.timer = setInterval(() => {
+            const v = +$('bpeSteps').value;
+            if (v >= 40) { clearInterval(bpe.timer); bpe.timer = null; $('bpePlay').textContent = 'Ejecutar todas'; return; }
+            $('bpeSteps').value = v + 1; bpeUpdate();
+        }, 420);
+    });
+    document.querySelectorAll('[data-bpe]').forEach(b => b.addEventListener('click', () => {
+        $('bpeText').value = b.dataset.bpe === 'apunte' ? BPE_APUNTE : BPE_DEFAULT;
+        $('bpeSteps').value = 0; bpeUpdate();
+    }));
+    bpeUpdate();
+}
+
+/* ═══════════════ TAB 2 · Modelo de lenguaje ═══════════════ */
+const CORPUS = `
+el modelo de lenguaje predice el siguiente token de la secuencia .
+el modelo de lenguaje aprende de los datos del corpus .
+la red neuronal procesa la secuencia de tokens uno a uno .
+la red neuronal aprende los pesos con descenso de gradiente .
+el transformer usa atencion para mezclar informacion de la secuencia .
+el transformer procesa todos los tokens en paralelo .
+la atencion decide a que tokens mirar en cada paso .
+la atencion mezcla los valores segun los pesos calculados .
+el gradiente fluye hacia atras por la red neuronal .
+el gradiente se desvanece en las redes muy profundas .
+los datos de entrenamiento determinan lo que el modelo aprende .
+los datos del corpus contienen texto de muchas fuentes .
+el modelo genera texto token a token de forma autorregresiva .
+la secuencia de tokens se convierte en vectores densos .
+el vocabulario define los tokens que el modelo conoce .
+la perplejidad mide cuanto duda el modelo en cada paso .
+`;
+
+const lm = { bigrams: new Map(), unigrams: new Map(), vocab: [], seq: [], logps: [] };
+
+function lmTrain() {
+    const sents = CORPUS.trim().split('\n').map(s => s.trim().split(/\s+/)).filter(a => a.length > 1);
+    sents.forEach(toks => {
+        toks.forEach((t, i) => {
+            lm.unigrams.set(t, (lm.unigrams.get(t) || 0) + 1);
+            if (i < toks.length - 1) {
+                if (!lm.bigrams.has(t)) lm.bigrams.set(t, new Map());
+                const m = lm.bigrams.get(t);
+                m.set(toks[i + 1], (m.get(toks[i + 1]) || 0) + 1);
+            }
+        });
+    });
+    lm.vocab = [...lm.unigrams.keys()].sort();
+}
+
+/** P(siguiente | contexto) con retroceso a unigramas cuando el bigrama no se vio. */
+function lmDist(ctx) {
+    const m = lm.bigrams.get(ctx);
+    const total = lm.vocab.reduce((s, w) => s + (lm.unigrams.get(w) || 0), 0);
+    const alpha = 0.35;                              // peso del retroceso a unigramas
+    const bTotal = m ? [...m.values()].reduce((a, b) => a + b, 0) : 0;
+    return lm.vocab.map(w => {
+        const pUni = (lm.unigrams.get(w) || 0) / total;
+        const pBi = bTotal ? (m.get(w) || 0) / bTotal : 0;
+        return bTotal ? (1 - alpha) * pBi + alpha * pUni : pUni;
+    });
+}
+
+function lmUpdate(justSampled) {
+    const T = +$('lmTemp').value;
+    $('v_lmTemp').textContent = fmt(T, 2);
+    const ctx = lm.seq[lm.seq.length - 1];
+    const base = lmDist(ctx);
+    // La temperatura opera sobre los logits, es decir log p
+    const logits = base.map(p => Math.log(Math.max(p, 1e-12)));
+    const p = Lab.softmax(logits, T);
+
+    const idx = lm.vocab.map((w, i) => i).sort((a, b) => p[b] - p[a]).slice(0, 8);
+    $('lmCap').innerHTML = `\\(P(x_t \\mid \\text{“${ctx}”})\\) — las 8 continuaciones más probables`;
+    Lab.renderMath($('lmCap'));
+
+    Lab.chart('lmCanvas', {
+        type: 'bar',
+        data: {
+            labels: idx.map(i => lm.vocab[i]),
+            datasets: [{ label: 'probabilidad', data: idx.map(i => p[i]),
+                         backgroundColor: idx.map(i => lm.vocab[i] === justSampled ? 'var(--series-3)' : 'var(--series-1)') }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { title: { display: true, text: 'P', color: '#94a3b8' } }, x: { ticks: { maxRotation: 45 } } }
+        }
+    });
+
+    $('lmSeq').innerHTML = lm.seq.map((w, i) =>
+        `<span class="w${i === lm.seq.length - 1 && lm.seq.length > 1 ? ' new' : ''}">${w}</span>`).join('');
+
+    const sumLog = lm.logps.reduce((a, b) => a + b, 0);
+    const n = lm.logps.length;
+    $('lmStats').innerHTML = n
+        ? `Tokens generados: <strong>${n}</strong><br>` +
+          `log P(secuencia) = Σ log P(xₜ|x&lt;ₜ) = <strong>${fmt(sumLog, 3)}</strong><br>` +
+          `P(secuencia) = <strong>${Lab.sci(Math.exp(sumLog), 2)}</strong> ← por eso se usan logaritmos<br>` +
+          `Entropía cruzada media = <strong>${fmt(-sumLog / n / Math.LN2, 3)} bits/token</strong><br>` +
+          `Perplejidad = <strong>${fmt(Math.exp(-sumLog / n), 2)}</strong>`
+        : 'Muestrea un token para empezar a acumular la probabilidad conjunta.';
+}
+
+function lmSample() {
+    const T = +$('lmTemp').value;
+    const ctx = lm.seq[lm.seq.length - 1];
+    const base = lmDist(ctx);
+    const p = Lab.softmax(base.map(v => Math.log(Math.max(v, 1e-12))), T);
+    let r = Math.random(), acc = 0, pick = 0;
+    for (let i = 0; i < p.length; i++) { acc += p[i]; if (r <= acc) { pick = i; break; } }
+    lm.seq.push(lm.vocab[pick]);
+    lm.logps.push(Math.log(p[pick]));
+    lmUpdate(lm.vocab[pick]);
+}
+
+function lmInit() {
+    lmTrain();
+    const starts = ['el', 'la', 'los', 'atencion', 'gradiente', 'transformer'].filter(w => lm.unigrams.has(w));
+    $('lmStart').innerHTML = starts.map(w => `<option value="${w}">${w}</option>`).join('');
+    const reset = () => { lm.seq = [$('lmStart').value]; lm.logps = []; lmUpdate(); };
+    $('lmStart').addEventListener('change', reset);
+    $('lmReset').addEventListener('click', reset);
+    $('lmTemp').addEventListener('input', () => lmUpdate());
+    $('lmStep').addEventListener('click', lmSample);
+    $('lmGen10').addEventListener('click', () => { for (let i = 0; i < 10; i++) lmSample(); });
+    reset();
+}
+
+/* ═══════════════ TAB 3 · Decodificación ═══════════════ */
+const DEC_PRESETS = {
+    apunte: { logits: [2, 1, 0, -1], vocab: ['A', 'B', 'C', 'D'] },
+    wide:   { logits: [4.8, 3.5, 2.9, 1.8, 1.2, 0.6, 0.2, 0.1],
+              vocab: ['parque', 'bosque', 'jardín', 'río', 'auto', 'gato', 'viento', 'espacio'] },
+    peaked: { logits: [7.5, 2.0, 1.5, 1.0, 0.5, 0.2, 0.1, 0.0],
+              vocab: ['París', 'Lyon', 'Marsella', 'Niza', 'Roma', 'Madrid', 'Berlín', 'Londres'] }
+};
+
+/** Aplica temperatura, top-k y top-p (núcleo) tal como lo hacen las librerías. */
+function decCompute() {
+    const preset = DEC_PRESETS[$('decPreset').value];
+    const logits = preset.logits, vocab = preset.vocab;
+    const T = +$('decT').value;
+    const k = Math.min(+$('decK').value, logits.length);
+    const topp = +$('decP').value;
+
+    const p = Lab.softmax(logits, T);
+    // Orden descendente por probabilidad (no se asume que los logits vengan ordenados)
+    const order = p.map((v, i) => i).sort((a, b) => p[b] - p[a]);
+
+    const keep = new Set();
+    // top-k: los k más probables
+    order.slice(0, k).forEach(i => keep.add(i));
+    // top-p: el conjunto MÁS PEQUEÑO cuya masa acumulada alcanza p — incluye el token que cruza el umbral
+    const nucleus = new Set();
+    let acc = 0;
+    for (const i of order) {
+        nucleus.add(i);
+        acc += p[i];
+        if (acc >= topp - 1e-9) break;
+    }
+    const survive = order.filter(i => keep.has(i) && nucleus.has(i));
+    const surviveSet = new Set(survive);
+
+    const mass = survive.reduce((s, i) => s + p[i], 0);
+    const final = p.map((v, i) => surviveSet.has(i) ? v / mass : 0);
+
+    // Acumulada en el orden ordenado, para la tabla
+    const cum = {}; let c = 0;
+    order.forEach(i => { c += p[i]; cum[i] = c; });
+
+    return { vocab, logits, p, final, order, surviveSet, cum, T, k, topp, nucleusSize: nucleus.size };
+}
+
+function decUpdate() {
+    const d = decCompute();
+    $('v_decT').textContent = fmt(d.T, 2);
+    $('v_decK').textContent = d.k >= d.vocab.length ? `${d.k} (sin efecto)` : d.k;
+    $('v_decP').textContent = fmt(d.topp, 2);
+    $('decK').max = d.vocab.length;
+
+    Lab.chart('decCanvas', {
+        type: 'bar',
+        data: {
+            labels: d.vocab,
+            datasets: [{ label: 'probabilidad final', data: d.final,
+                         backgroundColor: d.vocab.map((_, i) => d.surviveSet.has(i) ? 'var(--series-1)' : '#334155') }]
+        },
+        options: {
+            plugins: { legend: { display: false },
+                       tooltip: { callbacks: { label: (c) => d.surviveSet.has(c.dataIndex)
+                            ? `p = ${fmt(c.parsed.y, 4)} (antes de filtrar: ${fmt(d.p[c.dataIndex], 4)})`
+                            : `descartado (era ${fmt(d.p[c.dataIndex], 4)})` } } },
+            scales: { y: { max: 1, title: { display: true, text: 'probabilidad', color: '#94a3b8' } } }
+        }
+    });
+
+    $('decTable').innerHTML = d.order.map(i => {
+        const alive = d.surviveSet.has(i);
+        return `<tr style="${alive ? '' : 'opacity:.45'}">
+            <td>${d.vocab[i]}${alive ? '' : ' <span class="text-sub">✗</span>'}</td>
+            <td class="num">${fmt(d.logits[i], 1)}</td>
+            <td class="num">${fmt(d.p[i], 4)}</td>
+            <td class="num">${fmt(d.cum[i], 3)}</td>
+            <td class="num"><strong>${fmt(d.final[i], 4)}</strong></td></tr>`;
+    }).join('');
+
+    const kept = d.order.filter(i => d.surviveSet.has(i)).map(i => d.vocab[i]);
+    $('decExplain').innerHTML =
+        `Núcleo top-p (${fmt(d.topp, 2)}): los <strong>${d.nucleusSize}</strong> primeros por probabilidad ` +
+        `(el conjunto más pequeño que acumula ≥ ${fmt(d.topp, 2)}, incluido el que cruza el umbral).<br>` +
+        `Top-k: los <strong>${d.k}</strong> más probables.<br>` +
+        `Sobreviven a ambos: <strong>{${kept.join(', ')}}</strong> → se renormalizan para volver a sumar 1.`;
+
+    const n = $('decNote');
+    const maxP = Math.max(...d.final);
+    if (d.T <= 0.25) {
+        n.className = 'note';
+        n.innerHTML = `<strong>Temperatura baja = codicioso.</strong> Con \\(T = ${fmt(d.T, 2)}\\) la masa se concentra en el token más probable (${fmt(maxP * 100, 1)} %). El texto sale coherente pero repetitivo: el modelo deja de arriesgar.`;
+    } else if (d.T >= 1.5) {
+        n.className = 'note warn';
+        n.innerHTML = `<strong>Temperatura alta = caótico.</strong> Con \\(T = ${fmt(d.T, 2)}\\) la distribución se aplana y los tokens de la cola —los que casi nunca son correctos— se vuelven elegibles. Aquí es donde top-k y top-p ganan su sueldo: recortan la cola sin apagar la creatividad.`;
+    } else if (d.nucleusSize < d.vocab.length) {
+        n.className = 'note';
+        n.innerHTML = `<strong>El núcleo se adapta.</strong> A diferencia de top-k, que siempre corta en el mismo número de tokens, top-p ajusta el tamaño del conjunto a lo <em>segura</em> que esté la distribución: aquí bastan ${d.nucleusSize} tokens para acumular ${fmt(d.topp, 2)}. En un contexto muy predecible, top-p dejaría uno solo.`;
+    } else {
+        n.className = 'note';
+        n.innerHTML = `<strong>Sin filtrar.</strong> Con top-k = ${d.k} y top-p = ${fmt(d.topp, 2)} sobrevive todo el vocabulario. Baja cualquiera de los dos para ver el recorte de la cola.`;
+    }
+    Lab.renderMath(n);
+    decSampleChart(d, null);
+}
+
+function decSampleChart(d, counts) {
+    Lab.chart('sampleCanvas', {
+        type: 'bar',
+        data: {
+            labels: d.vocab,
+            datasets: [{ label: 'frecuencia observada', data: counts || d.vocab.map(() => 0),
+                         backgroundColor: 'var(--series-4)' }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { title: { display: true, text: 'veces muestreado (de 500)', color: '#94a3b8' }, beginAtZero: true } }
+        }
+    });
+}
+
+function decSample() {
+    const d = decCompute();
+    const counts = d.vocab.map(() => 0);
+    for (let n = 0; n < 500; n++) {
+        let r = Math.random(), acc = 0;
+        for (let i = 0; i < d.final.length; i++) { acc += d.final[i]; if (r <= acc) { counts[i]++; break; } }
+    }
+    decSampleChart(d, counts);
+}
+
+function decInit() {
+    ['decT', 'decK', 'decP'].forEach(id => $(id).addEventListener('input', decUpdate));
+    $('decPreset').addEventListener('change', () => {
+        $('decK').value = DEC_PRESETS[$('decPreset').value].vocab.length;
+        $('decP').value = 1; $('decT').value = 1;
+        decUpdate();
+    });
+    $('decSample').addEventListener('click', decSample);
+    $('decReset').addEventListener('click', () => {
+        $('decT').value = 1; $('decP').value = 1;
+        $('decK').value = DEC_PRESETS[$('decPreset').value].vocab.length;
+        decUpdate();
+    });
+    $('decK').value = 4;
+    decUpdate();
+}
+
+/* ═══════════════ TAB 4 · Entropía y perplejidad ═══════════════ */
+const PPL_LABELS = ['soleado', 'nublado', 'lluvioso', 'ventoso'];
+let pplRaw = [0.6, 0.2, 0.15, 0.05];
+
+function pplUpdate() {
+    const sum = pplRaw.reduce((a, b) => a + b, 0) || 1;
+    const p = pplRaw.map(v => v / sum);
+    const H = Lab.entropyBits(p);
+    const PPL = Math.pow(2, H);
+
+    $('pplSliders').innerHTML = PPL_LABELS.map((l, i) =>
+        `<div class="prob-slider">
+            <span>${l}</span>
+            <input type="range" data-ppl-i="${i}" min="0" max="1" step="0.01" value="${pplRaw[i]}">
+            <span class="mono">${fmt(p[i], 3)}</span>
+        </div>`).join('');
+    $('pplSliders').querySelectorAll('[data-ppl-i]').forEach(s =>
+        s.addEventListener('input', () => { pplRaw[+s.dataset.pplI] = +s.value; pplUpdate(); }));
+
+    $('pplH').textContent = fmt(H, 3);
+    $('pplV').textContent = fmt(PPL, 2);
+    $('pplV').style.color = PPL < 1.6 ? 'var(--ok)' : (PPL < 3 ? 'var(--warn)' : 'var(--bad)');
+
+    Lab.chart('pplCanvas', {
+        type: 'bar',
+        data: { labels: PPL_LABELS, datasets: [{ label: 'P', data: p, backgroundColor: 'var(--series-5)' }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { max: 1 } } }
+    });
+
+    $('pplRead').innerHTML = PPL_LABELS.map((l, i) =>
+        `${l.padEnd(10)} p = ${fmt(p[i], 4)}  →  −p·log₂p = ${fmt(p[i] > 0 ? -p[i] * Math.log2(p[i]) : 0, 4)}`).join('<br>') +
+        `<br><span class="text-sub">──────────────────────────</span><br>` +
+        `H = <strong>${fmt(H, 4)} bits</strong> &nbsp;·&nbsp; PPL = 2^H = <strong>${fmt(PPL, 3)}</strong>`;
+
+    const n = $('pplNote');
+    if (PPL < 1.3) {
+        n.className = 'note';
+        n.innerHTML = `<strong>Casi certeza.</strong> El modelo duda como si eligiera entre ${fmt(PPL, 2)} opciones. La entropía tiende a 0 y la pérdida por token también: no queda casi nada que aprender aquí.`;
+    } else if (PPL > 3.7) {
+        n.className = 'note warn';
+        n.innerHTML = `<strong>Duda casi total.</strong> Con 4 opciones, la perplejidad máxima posible es exactamente 4 (distribución uniforme, H = 2 bits). Estás en ${fmt(PPL, 2)}: el modelo no aporta información sobre cuál viene.`;
+    } else {
+        n.className = 'note';
+        n.innerHTML = `<strong>Incertidumbre razonable.</strong> El modelo se comporta como si dudara entre ${fmt(PPL, 2)} opciones equiprobables. La entropía cruzada de entrenamiento es justo esta cantidad promediada sobre todos los tokens del corpus — y la perplejidad, su exponencial.`;
+    }
+}
+
+function pplInit() {
+    document.querySelectorAll('[data-ppl]').forEach(b => b.addEventListener('click', () => {
+        const k = b.dataset.ppl;
+        pplRaw = k === 'confident' ? [0.95, 0.03, 0.01, 0.01]
+               : k === 'moderate' ? [0.35, 0.30, 0.25, 0.10]
+               : [0.25, 0.25, 0.25, 0.25];
+        pplUpdate();
+    }));
+    pplUpdate();
+}
+
+/* ═══════════════ TAB 5 · Quiz ═══════════════ */
+const QUIZ = [
+    { q: 'Con logits [2, 1, 0, −1] y T = 1, ¿qué deja top-p = 0.9?',
+      opts: ['Solo A (p = 0.644)', '{A, B} porque 0.644 + 0.237 = 0.881 &lt; 0.9',
+             '{A, B, C}: se incluye el token que <em>cruza</em> el umbral (0.968 ≥ 0.9)', 'Todo el vocabulario'],
+      answer: 2,
+      why: 'Top-p toma el conjunto <em>más pequeño</em> cuya masa acumulada <strong>alcanza o supera</strong> p. Con {A,B} llevamos 0.881, que aún no llega a 0.9, así que hay que añadir C: 0.968 ≥ 0.9. El núcleo es {A, B, C} y se renormaliza a [0.665, 0.245, 0.090]. Parar antes de cruzar el umbral es un error clásico de implementación.' },
+    { q: 'BPE fusiona el par más frecuente. Sobre el corpus low×5, lower×2, newest×6, widest×3, ¿cuál es la primera fusión?',
+      opts: ['(l, o), que aparece 7 veces', '(e, s), que aparece 9 veces (6 en newest + 3 en widest)',
+             '(w, i), del principio de widest', '(w, e), que aparece 8 veces'],
+      answer: 1,
+      why: 'Ojo con el conteo: (e,s) suma 9 (6 en <em>newest</em> + 3 en <em>widest</em>), pero <strong>empata en 9 con (s,t) y con (t,·)</strong> — un empate triple. Detrás vienen (w,e) con 8, y (l,o) y (o,w) con 7. Como las frecuencias no deciden, lo hace el <strong>criterio de desempate</strong>: por orden de aparición en el corpus, que elige (e,s). La segunda fusión será (es,t) → "est", una subpalabra reutilizable entre <em>newest</em> y <em>widest</em>. Cárgalo en la pestaña 1 y compruébalo.' },
+    { q: 'Un modelo tiene perplejidad 20 sobre un vocabulario de 50 000. ¿Qué significa?',
+      opts: ['Acierta 20 de cada 50 000 veces',
+             'En promedio duda como si eligiera entre 20 opciones equiprobables, no entre 50 000',
+             'Su entropía es 20 bits',
+             'Necesita 20 tokens de contexto'],
+      answer: 1,
+      why: 'La perplejidad es el <em>factor de ramificación efectivo</em>: \\(2^H\\), con H la entropía cruzada en bits por token. Un modelo al azar sobre 50 000 palabras tendría PPL = 50 000 (H ≈ 15.6 bits). Bajar a PPL 20 (H ≈ 4.3 bits) significa que el contexto redujo las opciones plausibles de cincuenta mil a una veintena. Ese estrechamiento <em>es</em> el modelo de lenguaje.' },
+    { q: 'Al generar, ¿por qué se acumula \\(\\sum \\log P\\) en vez de multiplicar las probabilidades?',
+      opts: ['Porque el logaritmo es más rápido de calcular',
+             'Porque el producto de cientos de números &lt; 1 se desborda por abajo y da 0 en coma flotante',
+             'Porque el logaritmo hace la distribución uniforme',
+             'Porque así la probabilidad puede superar 1'],
+      answer: 1,
+      why: 'Con 200 tokens a p ≈ 0.1 cada uno, el producto es \\(10^{-200}\\) — por debajo del mínimo representable en float32 y muy cerca del límite de float64. En logaritmos, el producto se vuelve una suma perfectamente estable (−460 en ese ejemplo). Y esa suma, cambiada de signo y dividida por el número de tokens, es exactamente la entropía cruzada que se minimiza al entrenar.' },
+    { q: 'Subes la temperatura de 0.7 a 1.8. ¿Qué cambió en el modelo?',
+      opts: ['Los pesos se reajustaron', 'Nada en el modelo: T solo reescala los logits <em>en el momento de muestrear</em>',
+             'El vocabulario creció', 'Se añadieron capas'],
+      answer: 1,
+      why: 'La temperatura es un parámetro de <em>decodificación</em>, no de entrenamiento: divide los logits antes del softmax (\\(p_i \\propto e^{z_i/T}\\)). El modelo, sus pesos y su distribución aprendida son idénticos; lo único que cambia es cuánto se aplana esa distribución al elegir. Por eso puedes mover el mando sin reentrenar nada — y por eso T no arregla un modelo malo.' }
+];
+
+/* ═══════════════ Arranque ═══════════════ */
+Lab.init({
+    classNumber: 5,
+    setup() {
+        bpeInit();
+        lmInit();
+        decInit();
+        pplInit();
+        Lab.quiz('quizBox', QUIZ, '🎯 Compruébalo — Clase 5');
+    }
+});
+})();
+</script>
+</body>
+</html>

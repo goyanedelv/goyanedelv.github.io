@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clase 03 — Secuencias y Espacios Latentes | Laboratorio RNA</title>
+<meta name="description" content="Laboratorio interactivo: RNN desenrollada, compuertas LSTM y GRU, gradiente que se desvanece en BPTT y aritmética de embeddings.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<link rel="stylesheet" href="assets/lab.css">
+<script src="assets/lab.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="initKaTeX()"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+    .header-box h1 { background: linear-gradient(135deg, var(--accent-violet), var(--accent-cyan)); -webkit-background-clip: text; background-clip: text; }
+    .seq-row { display: flex; gap: 0.4rem; align-items: stretch; overflow-x: auto; padding-bottom: 0.5rem; }
+    .seq-step { min-width: 108px; flex: 1; background: var(--bg-inset); border: 2px solid var(--border);
+                border-radius: 10px; padding: 0.6rem 0.5rem; text-align: center; transition: border-color .25s, opacity .25s; opacity: 0.42; }
+    .seq-step.on { opacity: 1; border-color: var(--accent-violet); }
+    .seq-step.cur { border-color: var(--accent-cyan); box-shadow: 0 0 16px rgba(6,182,212,.35); }
+    .seq-tok { font-family: 'Fira Code', monospace; font-weight: 700; font-size: 0.92rem; display: block; margin: 0.2rem 0 0.45rem; }
+    .hbars { display: flex; gap: 2px; height: 46px; align-items: flex-end; justify-content: center; }
+    .hbar { width: 12px; border-radius: 2px 2px 0 0; position: relative; }
+    .arrow-h { align-self: center; color: var(--text-muted); font-size: 1.1rem; }
+    .gate-pill { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 9999px; font-size: 0.74rem; font-weight: 700; margin-right: 0.45rem; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+
+<nav>
+    <a href="index.html" class="nav-brand"><span>&larr;</span> Laboratorio RNA</a>
+    <div class="nav-links"></div>
+</nav>
+
+<div class="container" id="main">
+    <div class="header-box">
+        <h1>Clase 03 — Secuencias y espacios latentes</h1>
+        <p>Una RNN de verdad, con números: mira el estado oculto propagarse paso a paso, abre las compuertas
+           de una LSTM y una GRU, comprueba en qué paso exacto muere el gradiente y recorre el espacio
+           semántico con sumas y restas.</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn" data-tab="tab1">1 · RNN desenrollada</button>
+        <button class="tab-btn" data-tab="tab2">2 · Compuertas LSTM &amp; GRU</button>
+        <button class="tab-btn" data-tab="tab3">3 · Gradiente en el tiempo (BPTT)</button>
+        <button class="tab-btn" data-tab="tab4">4 · Aritmética de embeddings</button>
+        <button class="tab-btn" data-tab="tab5">5 · Compruébalo</button>
+    </div>
+
+    <!-- ══════════════ TAB 1 ══════════════ -->
+    <div id="tab1" class="tab-content">
+        <div class="card">
+            <div class="card-title">El estado oculto se propaga en el tiempo</div>
+            <div class="formula-box">\[ h_t = \tanh(W_{hh}\,h_{t-1} + W_{xh}\,x_t + b), \qquad h_0 = \mathbf{0} \]</div>
+            <p class="card-sub">Estado oculto de 6 dimensiones, recurrencia real. Cada barra es una componente
+                de \(h_t\): azul si es positiva, roja si es negativa. <strong>La misma matriz \(W_{hh}\) se reutiliza
+                en todos los pasos</strong> — eso es lo que hace que la red acepte secuencias de cualquier largo.</p>
+
+            <div class="seq-row" id="rnnRow"></div>
+
+            <div class="controls mt-2">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="rnnT">Paso temporal \(t\) <output id="v_rnnT">1</output></label>
+                        <input type="range" id="rnnT" min="1" max="7" step="1" value="1">
+                    </div>
+                    <div class="control-group">
+                        <label for="rnnScale">Escala de \(W_{hh}\) <output id="v_rnnScale">0.90</output></label>
+                        <input type="range" id="rnnScale" min="0.1" max="1.8" step="0.05" value="0.9">
+                    </div>
+                    <div class="control-group">
+                        <label for="rnnSent">Secuencia</label>
+                        <select id="rnnSent">
+                            <option value="0">El perro corre rápido por el parque</option>
+                            <option value="1">La casa que vimos ayer era enorme</option>
+                            <option value="2">Ella dijo que no vendría hoy nunca</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2 mt-3">
+                <div class="readout" id="rnnDetail"></div>
+                <div>
+                    <div class="chart-box" style="height:200px"><canvas id="rnnNormCanvas"></canvas></div>
+                    <p class="fig-note">Norma \(\|h_t\|\) a lo largo de la secuencia. Con \(W_{hh}\) pequeña el
+                        estado se olvida de sí mismo; con \(W_{hh}\) grande, la \(\tanh\) satura y el estado se
+                        congela cerca de ±1.</p>
+                </div>
+            </div>
+            <div class="note" id="rnnNote"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 2 ══════════════ -->
+    <div id="tab2" class="tab-content">
+        <div class="card">
+            <div class="card-title">Simulador de compuertas
+                <span class="btn-group" style="margin-left:auto">
+                    <button class="btn btn-sm" id="btnLSTM">LSTM</button>
+                    <button class="btn btn-sm btn-outline" id="btnGRU">GRU</button>
+                </span>
+            </div>
+            <p class="card-sub" id="cellIntro"></p>
+            <div class="formula-box" id="cellFormula"></div>
+
+            <div class="grid-2">
+                <div>
+                    <div class="controls">
+                        <div id="lstmCtl">
+                            <div class="control-group">
+                                <label for="g_f"><span class="gate-pill" style="background:rgba(217,89,38,.2);color:var(--series-2);border:1px solid var(--series-2)">forget \(f_t\)</span> <output id="v_gf">0.95</output></label>
+                                <input type="range" id="g_f" min="0" max="1" step="0.01" value="0.95">
+                            </div>
+                            <div class="control-group">
+                                <label for="g_i"><span class="gate-pill" style="background:rgba(57,135,229,.2);color:var(--series-1);border:1px solid var(--series-1)">input \(i_t\)</span> <output id="v_gi">0.30</output></label>
+                                <input type="range" id="g_i" min="0" max="1" step="0.01" value="0.30">
+                            </div>
+                            <div class="control-group">
+                                <label for="g_o"><span class="gate-pill" style="background:rgba(25,158,112,.2);color:var(--series-3);border:1px solid var(--series-3)">output \(o_t\)</span> <output id="v_go">0.85</output></label>
+                                <input type="range" id="g_o" min="0" max="1" step="0.01" value="0.85">
+                            </div>
+                        </div>
+                        <div id="gruCtl" style="display:none">
+                            <div class="control-group">
+                                <label for="g_z"><span class="gate-pill" style="background:rgba(217,89,38,.2);color:var(--series-2);border:1px solid var(--series-2)">update \(z_t\)</span> <output id="v_gz">0.15</output></label>
+                                <input type="range" id="g_z" min="0" max="1" step="0.01" value="0.15">
+                            </div>
+                            <div class="control-group">
+                                <label for="g_r"><span class="gate-pill" style="background:rgba(57,135,229,.2);color:var(--series-1);border:1px solid var(--series-1)">reset \(r_t\)</span> <output id="v_gr">0.70</output></label>
+                                <input type="range" id="g_r" min="0" max="1" step="0.01" value="0.70">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label for="g_T">Pasos a simular \(T\) <output id="v_gT">25</output></label>
+                            <input type="range" id="g_T" min="5" max="60" step="1" value="25">
+                        </div>
+                        <div class="control-group">
+                            <label>Escenario</label>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline" data-scn="keep">Recordar un dato lejano</button>
+                                <button class="btn btn-sm btn-outline" data-scn="forget">Olvidar deprisa</button>
+                                <button class="btn btn-sm btn-outline" data-scn="stream">Escribir sin parar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="readout mt-2" id="cellOut"></div>
+                </div>
+                <div>
+                    <div class="chart-box" style="height:250px"><canvas id="cellCanvas"></canvas></div>
+                    <p class="fig-note">En \(t=1\) entra el dato importante (valor 1.0). A partir de ahí la entrada es
+                        ruido irrelevante: la pregunta es <strong>cuánto sobrevive de aquel primer dato</strong>.</p>
+                    <div class="note mt-2" id="cellNote"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 3 ══════════════ -->
+    <div id="tab3" class="tab-content">
+        <div class="grid-2 wide-left">
+            <div class="card">
+                <div class="card-title">Cuánto gradiente sobrevive al retroceder \(k\) pasos</div>
+                <div class="chart-box" style="height:300px"><canvas id="bpttCanvas"></canvas></div>
+                <p class="fig-note">En una RNN clásica, \(\partial h_t/\partial h_{t-k}\) es el producto de \(k\)
+                    factores \(\approx W_{hh}\cdot\tanh'\). La LSTM lleva además la autopista aditiva de la celda,
+                    cuyo factor es la compuerta de olvido \(f\). Eje logarítmico.</p>
+            </div>
+            <div class="card">
+                <div class="card-title">Controles</div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="bpW">Peso recurrente \(W_{hh}\) <output id="v_bpW">0.90</output></label>
+                        <input type="range" id="bpW" min="0.30" max="1.60" step="0.01" value="0.90">
+                    </div>
+                    <div class="control-group">
+                        <label for="bpTanh">Derivada media de \(\tanh\) <output id="v_bpTanh">0.85</output></label>
+                        <input type="range" id="bpTanh" min="0.10" max="1.00" step="0.01" value="0.85">
+                    </div>
+                    <div class="control-group">
+                        <label for="bpF">Compuerta de olvido de la LSTM \(f\) <output id="v_bpF">0.98</output></label>
+                        <input type="range" id="bpF" min="0.50" max="1.00" step="0.005" value="0.98">
+                    </div>
+                    <div class="control-group">
+                        <label for="bpT">Longitud de secuencia \(T\) <output id="v_bpT">40</output></label>
+                        <input type="range" id="bpT" min="10" max="120" step="5" value="40">
+                    </div>
+                </div>
+
+                <div class="stat-row mt-2">
+                    <div class="stat"><div class="stat-label">Factor efectivo RNN</div><div class="stat-value" id="bpEff">—</div>
+                        <div class="stat-hint">\(W_{hh}\cdot\tanh'\) por paso</div></div>
+                    <div class="stat"><div class="stat-label">Horizonte útil</div><div class="stat-value" id="bpHorizon">—</div>
+                        <div class="stat-hint">pasos hasta caer bajo 1 %</div></div>
+                </div>
+                <div class="mt-2" id="bpVerdict"></div>
+                <div class="note">
+                    <strong>El punto exacto.</strong> Si el factor por paso es \(\lambda\), tras \(k\) pasos queda
+                    \(\lambda^k\). Con \(\lambda &lt; 1\) eso tiende a 0 <em>exponencialmente</em>: aunque la secuencia
+                    tenga 200 pasos, la red solo ve los últimos poquitos. Con \(\lambda &gt; 1\) explota, y ahí el
+                    parche estándar es recortar la norma del gradiente. La LSTM esquiva el dilema porque su camino
+                    aditivo multiplica por \(f\), que la red <em>aprende</em> a dejar cerca de 1 cuando conviene recordar.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 4 ══════════════ -->
+    <div id="tab4" class="tab-content">
+        <div class="grid-2 wide-left">
+            <div class="card">
+                <div class="card-title">Espacio latente (2D) y el paralelogramo de la analogía</div>
+                <canvas id="embCanvas" data-ratio="0.8" aria-label="Espacio de embeddings en dos dimensiones con el vector de la analogía"></canvas>
+                <div class="legend">
+                    <span class="legend-item"><span class="legend-swatch" style="background:var(--series-1)"></span>a (origen)</span>
+                    <span class="legend-item"><span class="legend-swatch" style="background:var(--series-2)"></span>b (se resta)</span>
+                    <span class="legend-item"><span class="legend-swatch" style="background:var(--series-4)"></span>c (se suma)</span>
+                    <span class="legend-item"><span class="legend-swatch" style="background:var(--series-5)"></span>respuesta</span>
+                </div>
+                <p class="fig-note">La flecha discontinua <span class="mono">a − b</span> y la flecha
+                    <span class="mono">c → resultado</span> son <strong>el mismo desplazamiento</strong>: eso es lo
+                    que significa que una relación semántica sea una dirección constante del espacio.</p>
+            </div>
+            <div class="card">
+                <div class="card-title">Analogía \(a - b + c \approx\, ?\)</div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Presets</label>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline" data-vp="gender">Rey − Hombre + Mujer</button>
+                            <button class="btn btn-sm btn-outline" data-vp="capital">París − Francia + Italia</button>
+                            <button class="btn btn-sm btn-outline" data-vp="verbs">Caminó − Caminar + Hablar</button>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control-group"><label for="vecA">a</label><select id="vecA"></select></div>
+                        <div class="control-group"><label for="vecB">− b</label><select id="vecB"></select></div>
+                        <div class="control-group"><label for="vecC">+ c</label><select id="vecC"></select></div>
+                    </div>
+                    <div class="control-group">
+                        <label for="vecExclude">
+                            <span><input type="checkbox" id="vecExclude" checked style="width:auto;margin-right:.4rem">
+                            Excluir a, b y c del ranking</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="readout mt-2" id="vecResult"></div>
+                <div class="table-wrap mt-2">
+                    <table class="data-table">
+                        <thead><tr><th>#</th><th>Palabra</th><th>Coseno</th><th>Distancia</th></tr></thead>
+                        <tbody id="vecTable"></tbody>
+                    </table>
+                </div>
+                <div class="note">
+                    <strong>Por qué la casilla importa.</strong> Sin excluir \(a\), \(b\) y \(c\), la respuesta más
+                    cercana suele ser el propio \(a\) — no porque el modelo acierte, sino porque no se movió lo
+                    suficiente. Todas las evaluaciones de analogías serias los excluyen. Y ojo: la aritmética
+                    funciona en muchos casos y falla en otros; además hereda los sesgos del corpus.
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Matriz de similitud por coseno</div>
+            <p class="card-sub">Todos contra todos. Los bloques que se iluminan son los campos semánticos:
+                la geometría agrupó los conceptos <em>sin que nadie etiquetara nada</em>.
+                El ejemplo del apunte: <span class="mono">cos(gato, perro) ≈ 0.99</span>,
+                <span class="mono">cos(gato, auto) = 0</span>.</p>
+            <div id="simMatrix"></div>
+            <div id="simBar" style="max-width:320px"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 5 ══════════════ -->
+    <div id="tab5" class="tab-content">
+        <div id="quizBox"></div>
+        <div class="card">
+            <div class="card-title">Para seguir jugando</div>
+            <ul class="small text-sub" style="padding-left:1.2rem; display:flex; flex-direction:column; gap:0.4rem">
+                <li>En la 1, baja la escala de \(W_{hh}\) a 0.2: el estado se reinicia casi en cada paso, la red no tiene memoria. Súbela a 1.6: la tanh satura y todo se queda pegado en ±1.</li>
+                <li>En la 2, escenario "recordar" con \(f=1.0\): el dato del paso 1 sigue intacto en el paso 60. Baja \(f\) a 0.9 y mira cuántos pasos aguanta.</li>
+                <li>En la 3, busca el \(W_{hh}\) que deja el horizonte útil en ~10 pasos. Ese número es literalmente "cuántas palabras atrás puede mirar la red".</li>
+                <li>En la 4, desmarca la casilla de exclusión: la respuesta pasa a ser el propio <em>a</em>. Ahí se ve por qué el detalle no es cosmético.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<footer class="lab-footer"></footer>
+
+<script>
+(function () {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const fmt = Lab.fmt;
+
+/* ═══════════════ TAB 1 · RNN ═══════════════ */
+const SENTENCES = [
+    ['El', 'perro', 'corre', 'rápido', 'por', 'el', 'parque'],
+    ['La', 'casa', 'que', 'vimos', 'ayer', 'era', 'enorme'],
+    ['Ella', 'dijo', 'que', 'no', 'vendría', 'hoy', 'nunca']
+];
+const HDIM = 6;
+const rnnRand = Lab.rng(2024);
+const Whh0 = Array.from({ length: HDIM }, () => Array.from({ length: HDIM }, () => Lab.gauss(rnnRand) * 0.45));
+const Wxh0 = Array.from({ length: HDIM }, () => Array.from({ length: 8 }, () => Lab.gauss(rnnRand) * 0.8));
+const bh = Array.from({ length: HDIM }, () => Lab.gauss(rnnRand) * 0.1);
+
+/** Embedding determinista de una palabra: 8 dimensiones a partir de sus letras. */
+function wordVec(w) {
+    const v = new Array(8).fill(0);
+    for (let i = 0; i < w.length; i++) {
+        const code = w.toLowerCase().charCodeAt(i);
+        v[i % 8] += Math.sin(code * 0.7 + i) * 0.6;
+    }
+    return v;
+}
+
+function rnnRun() {
+    const words = SENTENCES[+$('rnnSent').value];
+    const s = +$('rnnScale').value;
+    const states = [new Array(HDIM).fill(0)];
+    for (let t = 0; t < words.length; t++) {
+        const x = wordVec(words[t]);
+        const prev = states[t];
+        const h = new Array(HDIM);
+        for (let i = 0; i < HDIM; i++) {
+            let z = bh[i];
+            for (let j = 0; j < HDIM; j++) z += s * Whh0[i][j] * prev[j];
+            for (let j = 0; j < 8; j++) z += Wxh0[i][j] * x[j];
+            h[i] = Math.tanh(z);
+        }
+        states.push(h);
+    }
+    return { words, states };
+}
+
+function rnnUpdate() {
+    const t = +$('rnnT').value, s = +$('rnnScale').value;
+    $('v_rnnT').textContent = t;
+    $('v_rnnScale').textContent = fmt(s, 2);
+    const { words, states } = rnnRun();
+    $('rnnT').max = words.length;
+
+    $('rnnRow').innerHTML = words.map((w, i) => {
+        const h = states[i + 1];
+        const bars = h.map(v => {
+            const hgt = Math.abs(v) * 22;
+            const col = v >= 0 ? 'var(--series-1)' : 'var(--series-2)';
+            return `<span class="hbar" style="height:${Math.max(2, hgt)}px;background:${col}"
+                     title="componente = ${fmt(v, 3)}"></span>`;
+        }).join('');
+        const cls = 'seq-step' + (i < t ? ' on' : '') + (i === t - 1 ? ' cur' : '');
+        return `<div class="${cls}">
+            <span style="font-size:0.7rem;color:var(--text-sub)">t = ${i + 1}</span>
+            <span class="seq-tok">${w}</span>
+            <div class="hbars">${bars}</div>
+            <span class="mono" style="font-size:0.68rem;color:var(--text-sub)">‖h‖ = ${fmt(Math.hypot(...h), 2)}</span>
+        </div>` + (i < words.length - 1 ? '<span class="arrow-h">→</span>' : '');
+    }).join('');
+
+    const h = states[t], hp = states[t - 1];
+    $('rnnDetail').innerHTML =
+        `<strong>Paso t = ${t} — entra "${words[t - 1]}"</strong><br><br>` +
+        `h<sub>${t - 1}</sub> = [${hp.map(v => fmt(v, 2)).join(', ')}]<br>` +
+        `x<sub>${t}</sub> = embedding("${words[t - 1]}")<br>` +
+        `h<sub>${t}</sub> = tanh(${fmt(s, 2)}·W<sub>hh</sub>·h<sub>${t - 1}</sub> + W<sub>xh</sub>·x<sub>${t}</sub> + b)<br>` +
+        `&nbsp;&nbsp;&nbsp;= [<strong>${h.map(v => fmt(v, 2)).join(', ')}</strong>]<br><br>` +
+        `<span class="text-sub">‖h<sub>${t}</sub>‖ = ${fmt(Math.hypot(...h), 3)} &nbsp;·&nbsp; saturadas (|hᵢ|>0.95): ` +
+        `${h.filter(v => Math.abs(v) > 0.95).length} de ${HDIM}</span>`;
+
+    Lab.chart('rnnNormCanvas', {
+        type: 'line',
+        data: {
+            labels: words.map((w, i) => `t${i + 1}`),
+            datasets: [{ label: '‖hₜ‖', data: states.slice(1).map(v => Math.hypot(...v)),
+                         borderColor: 'var(--series-6)', pointRadius: 4 }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, max: Math.sqrt(HDIM), title: { display: true, text: 'norma del estado', color: '#94a3b8' } } }
+        }
+    });
+
+    const sat = states.slice(1).flat().filter(v => Math.abs(v) > 0.95).length / (words.length * HDIM);
+    const n = $('rnnNote');
+    if (s < 0.35) {
+        n.className = 'note warn';
+        n.innerHTML = '<strong>Recurrencia demasiado débil.</strong> El término \\(W_{hh}h_{t-1}\\) casi no aporta: cada estado depende sobre todo de la palabra actual y olvida el pasado de inmediato. Esto no es memoria, es una capa densa aplicada palabra a palabra.';
+    } else if (sat > 0.5) {
+        n.className = 'note warn';
+        n.innerHTML = `<strong>Estado saturado.</strong> El ${fmt(sat * 100, 0)} % de las componentes está pegado a ±1, donde \\(\\tanh' \\approx 0\\). El estado deja de responder a la entrada <em>y</em> corta el gradiente: es el mismo problema de saturación de la sigmoide en la Clase 1, ahora repetido en cada paso temporal.`;
+    } else {
+        n.className = 'note';
+        n.innerHTML = '<strong>Un solo juego de pesos, cualquier longitud.</strong> \\(W_{hh}\\), \\(W_{xh}\\) y \\(b\\) son los mismos en los siete pasos: la red no tiene un parámetro "para la palabra 3". Por eso puede procesar frases de largo arbitrario — y por eso, al retropropagar, el mismo factor se multiplica una y otra vez (pestaña 3).';
+    }
+    Lab.renderMath(n);
+}
+
+/* ═══════════════ TAB 2 · LSTM / GRU ═══════════════ */
+let cellMode = 'LSTM';
+
+function cellUpdate() {
+    const T = +$('g_T').value;
+    $('v_gT').textContent = T;
+    const isL = cellMode === 'LSTM';
+    const f = +$('g_f').value, i = +$('g_i').value, o = +$('g_o').value;
+    const z = +$('g_z').value, r = +$('g_r').value;
+    $('v_gf').textContent = fmt(f, 2); $('v_gi').textContent = fmt(i, 2); $('v_go').textContent = fmt(o, 2);
+    $('v_gz').textContent = fmt(z, 2); $('v_gr').textContent = fmt(r, 2);
+
+    const rand = Lab.rng(99);
+    const ts = [], C = [], H = [], signal = [];
+    let c = 0, h = 0;
+    for (let t = 1; t <= T; t++) {
+        // t = 1 trae el dato importante; después, solo ruido.
+        const x = t === 1 ? 1.0 : Lab.gauss(rand) * 0.15;
+        if (isL) {
+            const ctilde = Math.tanh(x + 0.3 * h);
+            c = f * c + i * ctilde;
+            h = o * Math.tanh(c);
+        } else {
+            const htilde = Math.tanh(x + 0.3 * r * h);
+            h = (1 - z) * h + z * htilde;
+            c = h;                                   // la GRU no tiene celda aparte
+        }
+        ts.push(String(t));
+        C.push(c); H.push(h);
+        // Cuánto del dato del paso 1 sobrevive: producto de los factores de retención
+        signal.push(t === 1 ? 1 : (isL ? Math.pow(f, t - 1) : Math.pow(1 - z, t - 1)));
+    }
+
+    Lab.chart('cellCanvas', {
+        type: 'line',
+        data: {
+            labels: ts,
+            datasets: [
+                { label: isL ? 'estado de celda Cₜ' : 'estado hₜ', data: C, borderColor: 'var(--series-1)', borderWidth: 3 },
+                { label: 'salida hₜ', data: H, borderColor: 'var(--series-3)' },
+                { label: 'resto del dato de t=1', data: signal, borderColor: 'var(--series-2)', borderDash: [5, 4] }
+            ]
+        },
+        options: {
+            scales: {
+                x: { title: { display: true, text: 'paso temporal', color: '#94a3b8' },
+                     ticks: { callback: (v, k) => ((k + 1) % Math.ceil(T / 10) === 0 ? ts[k] : '') } },
+                y: { title: { display: true, text: 'valor', color: '#94a3b8' } }
+            }
+        }
+    });
+
+    const keep = signal[signal.length - 1];
+    const halfLife = isL ? (f < 1 ? Math.log(0.5) / Math.log(f) : Infinity)
+                         : ((1 - z) < 1 ? Math.log(0.5) / Math.log(1 - z) : Infinity);
+
+    $('cellOut').innerHTML = isL
+        ? `<strong>Un paso de LSTM</strong><br>` +
+          `C̃ₜ = tanh(xₜ + 0.3·h₍ₜ₋₁₎)  ← candidato<br>` +
+          `Cₜ = f·C₍ₜ₋₁₎ + i·C̃ₜ = ${fmt(f, 2)}·C₍ₜ₋₁₎ + ${fmt(i, 2)}·C̃ₜ<br>` +
+          `hₜ = o·tanh(Cₜ) = ${fmt(o, 2)}·tanh(Cₜ)<br><br>` +
+          `Tras ${T} pasos queda el <strong>${fmt(keep * 100, 1)} %</strong> del dato inicial.<br>` +
+          `Vida media de la memoria: <strong>${isFinite(halfLife) ? fmt(halfLife, 1) + ' pasos' : 'infinita (f = 1)'}</strong>`
+        : `<strong>Un paso de GRU</strong><br>` +
+          `h̃ₜ = tanh(xₜ + 0.3·r·h₍ₜ₋₁₎)  ← candidato, con reset r = ${fmt(r, 2)}<br>` +
+          `hₜ = (1 − z)·h₍ₜ₋₁₎ + z·h̃ₜ = ${fmt(1 - z, 2)}·h₍ₜ₋₁₎ + ${fmt(z, 2)}·h̃ₜ<br><br>` +
+          `Tras ${T} pasos queda el <strong>${fmt(keep * 100, 1)} %</strong> del dato inicial.<br>` +
+          `Vida media de la memoria: <strong>${isFinite(halfLife) ? fmt(halfLife, 1) + ' pasos' : 'infinita (z = 0)'}</strong>`;
+
+    const n = $('cellNote');
+    if (keep > 0.5) {
+        n.className = 'note';
+        n.innerHTML = `<strong>La memoria aguanta.</strong> El camino de la celda es <em>aditivo</em>: \\(C_t = f\\,C_{t-1} + \\dots\\). Mientras \\(f\\) esté cerca de 1, la información viaja sin atenuarse y el gradiente también. Esa es toda la idea de la LSTM — y la razón de que \\(f\\) se inicialice con sesgo positivo en la práctica.`;
+    } else if (keep < 0.02) {
+        n.className = 'note warn';
+        n.innerHTML = `<strong>La memoria se evaporó.</strong> Solo queda el ${fmt(keep * 100, 2)} % del dato inicial: la red ya no puede usarlo para nada. Es exactamente el fallo de la RNN clásica, pero aquí es una <em>decisión</em> de la compuerta, no un accidente del álgebra — y la red puede aprender a no tomarla.`;
+    } else {
+        n.className = 'note';
+        n.innerHTML = `<strong>Punto intermedio.</strong> La compuerta decide el horizonte de memoria. Lo importante es que ese horizonte es un parámetro <em>aprendido</em>: la red ajusta \\(f\\) (o \\(z\\)) según cuánto convenga recordar en cada contexto.`;
+    }
+    Lab.renderMath(n);
+}
+
+function setCellMode(m) {
+    cellMode = m;
+    $('btnLSTM').className = 'btn btn-sm' + (m === 'LSTM' ? '' : ' btn-outline');
+    $('btnGRU').className = 'btn btn-sm' + (m === 'GRU' ? '' : ' btn-outline');
+    $('lstmCtl').style.display = m === 'LSTM' ? 'block' : 'none';
+    $('gruCtl').style.display = m === 'GRU' ? 'block' : 'none';
+    $('cellIntro').innerHTML = m === 'LSTM'
+        ? 'La LSTM separa <strong>memoria</strong> (\\(C_t\\), la celda) de <strong>salida</strong> (\\(h_t\\)). Tres compuertas deciden qué se borra, qué se escribe y qué se muestra.'
+        : 'La GRU fusiona celda y salida en un solo estado y usa <strong>dos</strong> compuertas en vez de tres: \\(z\\) interpola entre recordar y actualizar, \\(r\\) decide cuánto pasado entra en el candidato. Menos parámetros, rendimiento comparable.';
+    $('cellFormula').innerHTML = m === 'LSTM'
+        ? '\\[ C_t = f_t \\odot C_{t-1} + i_t \\odot \\tilde{C}_t, \\qquad h_t = o_t \\odot \\tanh(C_t) \\]'
+        : '\\[ h_t = (1 - z_t) \\odot h_{t-1} + z_t \\odot \\tilde{h}_t, \\qquad \\tilde{h}_t = \\tanh(W x_t + r_t \\odot U h_{t-1}) \\]';
+    Lab.renderMath($('cellIntro')); Lab.renderMath($('cellFormula'));
+    cellUpdate();
+}
+
+function cellInit() {
+    ['g_f', 'g_i', 'g_o', 'g_z', 'g_r', 'g_T'].forEach(id => $(id).addEventListener('input', cellUpdate));
+    $('btnLSTM').addEventListener('click', () => setCellMode('LSTM'));
+    $('btnGRU').addEventListener('click', () => setCellMode('GRU'));
+    document.querySelectorAll('[data-scn]').forEach(b => b.addEventListener('click', () => {
+        const s = b.dataset.scn;
+        if (s === 'keep')   { $('g_f').value = 1.0;  $('g_i').value = 0.05; $('g_o').value = 0.9; $('g_z').value = 0.02; $('g_r').value = 0.5; }
+        if (s === 'forget') { $('g_f').value = 0.75; $('g_i').value = 0.6;  $('g_o').value = 0.9; $('g_z').value = 0.45; $('g_r').value = 0.9; }
+        if (s === 'stream') { $('g_f').value = 0.3;  $('g_i').value = 0.95; $('g_o').value = 1.0; $('g_z').value = 0.9;  $('g_r').value = 1.0; }
+        cellUpdate();
+    }));
+    setCellMode('LSTM');
+}
+
+/* ═══════════════ TAB 3 · BPTT ═══════════════ */
+function bpttUpdate() {
+    const W = +$('bpW').value, td = +$('bpTanh').value, f = +$('bpF').value, T = +$('bpT').value;
+    $('v_bpW').textContent = fmt(W, 2); $('v_bpTanh').textContent = fmt(td, 2);
+    $('v_bpF').textContent = fmt(f, 3); $('v_bpT').textContent = T;
+
+    const lambda = W * td;
+    const ks = [], rnn = [], lstm = [];
+    for (let k = 0; k <= T; k++) { ks.push(String(k)); rnn.push(Math.pow(lambda, k)); lstm.push(Math.pow(f, k)); }
+
+    Lab.chart('bpttCanvas', {
+        type: 'line',
+        data: {
+            labels: ks,
+            datasets: [
+                { label: 'LSTM (camino de la celda, factor f)', data: lstm.map(v => Math.max(v, 1e-22)), borderColor: 'var(--series-3)', borderWidth: 3 },
+                { label: 'RNN clásica (factor Wₕₕ·tanh′)', data: rnn.map(v => Math.max(v, 1e-22)), borderColor: 'var(--series-2)', borderWidth: 3 }
+            ]
+        },
+        options: {
+            scales: {
+                y: { type: 'logarithmic', min: 1e-12, max: Math.max(10, Math.pow(lambda, T) * 2),
+                     title: { display: true, text: '∂hₜ/∂hₜ₋ₖ (log)', color: '#94a3b8' } },
+                x: { title: { display: true, text: 'pasos hacia atrás k', color: '#94a3b8' },
+                     ticks: { callback: (v, i) => (i % Math.ceil(T / 10) === 0 ? ks[i] : '') } }
+            }
+        }
+    });
+
+    $('bpEff').textContent = fmt(lambda, 3);
+    const horizon = lambda >= 1 ? Infinity : Math.log(0.01) / Math.log(lambda);
+    $('bpHorizon').textContent = isFinite(horizon) ? fmt(horizon, 0) : '∞';
+    $('bpEff').style.color = lambda > 1.02 ? 'var(--bad)' : (lambda < 0.9 ? 'var(--warn)' : 'var(--ok)');
+
+    const v = $('bpVerdict');
+    if (lambda > 1.02) {
+        v.innerHTML = `<span class="pill bad">gradiente que explota</span> <span class="small text-sub">Tras ${T} pasos el factor es ${Lab.sci(Math.pow(lambda, T), 1)}. En la práctica esto produce NaN; el parche estándar es recortar la norma del gradiente.</span>`;
+    } else if (lambda < 0.85) {
+        v.innerHTML = `<span class="pill bad">gradiente que se desvanece</span> <span class="small text-sub">Más allá de ~${fmt(horizon, 0)} pasos la red es ciega: no puede aprender que el sujeto del principio de la frase determina el verbo del final.</span>`;
+    } else {
+        v.innerHTML = `<span class="pill warn">zona estrecha</span> <span class="small text-sub">Justo alrededor de λ = 1 la RNN se comporta, pero es un filo: cualquier desviación la manda a desvanecerse o a explotar. Las compuertas existen para no depender de esta suerte.</span>`;
+    }
+}
+
+/* ═══════════════ TAB 4 · Embeddings ═══════════════ */
+const WORDS = {
+    'Rey':     [2.0, 3.0], 'Reina':   [-2.0, 3.1], 'Hombre': [2.2, 0.8], 'Mujer': [-1.8, 0.9],
+    'París':   [-3.5, -2.5], 'Francia': [-2.0, -2.8], 'Roma': [-1.0, -3.5], 'Italia': [0.5, -3.8],
+    'Madrid':  [3.8, -2.4], 'España':  [2.5, -2.7],
+    'Caminar': [-3.8, 1.8], 'Caminó': [-2.8, 2.8], 'Hablar': [0.8, 1.8], 'Habló': [1.8, 2.8],
+    'gato':    [2.0, 1.0], 'perro': [3.0, 1.0], 'auto': [-1.0, 2.0]
+};
+const WORD_LIST = Object.keys(WORDS);
+
+function vecCompute() {
+    const a = $('vecA').value, b = $('vecB').value, c = $('vecC').value;
+    const va = WORDS[a], vb = WORDS[b], vc = WORDS[c];
+    const target = [va[0] - vb[0] + vc[0], va[1] - vb[1] + vc[1]];
+    const excl = $('vecExclude').checked;
+
+    const rank = WORD_LIST
+        .filter(w => !(excl && (w === a || w === b || w === c)))
+        .map(w => ({ w, cos: Lab.M.cosine(target, WORDS[w]),
+                     dist: Math.hypot(WORDS[w][0] - target[0], WORDS[w][1] - target[1]) }))
+        .sort((x, y) => y.cos - x.cos);
+
+    $('vecResult').innerHTML =
+        `<strong>${a} − ${b} + ${c}</strong> = (${fmt(target[0], 2)}, ${fmt(target[1], 2)})<br>` +
+        `Vecino más cercano por coseno: <strong style="color:var(--series-5)">${rank[0].w}</strong> ` +
+        `(cos = ${fmt(rank[0].cos, 3)})`;
+
+    $('vecTable').innerHTML = rank.slice(0, 6).map((r, i) =>
+        `<tr${i === 0 ? ' style="background:rgba(213,81,129,.12)"' : ''}>
+            <td class="num">${i + 1}</td><td>${r.w}</td>
+            <td class="num">${fmt(r.cos, 3)}</td><td class="num">${fmt(r.dist, 2)}</td></tr>`).join('');
+
+    vecDraw(a, b, c, target, rank[0].w);
+}
+
+function vecDraw(aN, bN, cN, target, best) {
+    const cn = Lab.fitCanvas('embCanvas', () => vecCompute());
+    if (!cn) return;
+    const { ctx, W, H } = cn;
+    const R = 5.2;
+    const X = (v) => W / 2 + v / R * (W / 2 - 30);
+    const Y = (v) => H / 2 - v / R * (H / 2 - 24);
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(148,163,184,0.2)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), H); ctx.stroke();
+
+    const arrow = (x1, y1, x2, y2, color, dash) => {
+        ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.setLineDash(dash || []);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+        const ang = Math.atan2(y2 - y1, x2 - x1);
+        ctx.beginPath(); ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - 9 * Math.cos(ang - 0.4), y2 - 9 * Math.sin(ang - 0.4));
+        ctx.lineTo(x2 - 9 * Math.cos(ang + 0.4), y2 - 9 * Math.sin(ang + 0.4));
+        ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+    };
+
+    // El desplazamiento b→a es el mismo que c→resultado: el paralelogramo
+    const vb = WORDS[bN], va = WORDS[aN], vc = WORDS[cN];
+    arrow(X(vb[0]), Y(vb[1]), X(va[0]), Y(va[1]), Lab.cssVar('--series-4'), [6, 4]);
+    arrow(X(vc[0]), Y(vc[1]), X(target[0]), Y(target[1]), Lab.cssVar('--series-5'));
+
+    const roles = { [aN]: '--series-1', [bN]: '--series-2', [cN]: '--series-4' };
+    WORD_LIST.forEach(w => {
+        const v = WORDS[w], px = X(v[0]), py = Y(v[1]);
+        const isBest = w === best;
+        const roleVar = roles[w];
+        ctx.beginPath(); ctx.arc(px, py, isBest ? 8 : (roleVar ? 7 : 4.5), 0, Math.PI * 2);
+        ctx.fillStyle = isBest ? Lab.cssVar('--series-5') : (roleVar ? Lab.cssVar(roleVar) : '#64748b');
+        ctx.fill();
+        if (isBest || roleVar) { ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 2; ctx.stroke(); }
+        ctx.fillStyle = (isBest || roleVar) ? '#f8fafc' : '#94a3b8';
+        ctx.font = (isBest || roleVar) ? '600 12px Inter' : '11px Inter';
+        ctx.textAlign = 'left';
+        ctx.fillText(w, px + 10, py + 4);
+    });
+
+    // Punto objetivo (el resultado exacto de la suma vectorial)
+    ctx.beginPath(); ctx.arc(X(target[0]), Y(target[1]), 5, 0, Math.PI * 2);
+    ctx.strokeStyle = Lab.cssVar('--series-5'); ctx.lineWidth = 2; ctx.stroke();
+}
+
+function simMatrix() {
+    const subset = ['gato', 'perro', 'auto', 'Rey', 'Reina', 'Hombre', 'Mujer', 'París', 'Francia'];
+    const M = subset.map(a => subset.map(b => Lab.M.cosine(WORDS[a], WORDS[b])));
+    Lab.heatmap('simMatrix', M, {
+        scale: 'div', max: 1, digits: 2, small: true,
+        rowLabels: subset, colLabels: subset,
+        tooltip: (r, c, v) => `cos(${subset[r]}, ${subset[c]}) = ${fmt(v, 3)}`
+    });
+    Lab.colorbar('simBar', -1, 1, 'div');
+}
+
+function vecInit() {
+    ['vecA', 'vecB', 'vecC'].forEach(id => {
+        const sel = $(id);
+        sel.innerHTML = WORD_LIST.map(w => `<option value="${w}">${w}</option>`).join('');
+        sel.addEventListener('change', vecCompute);
+    });
+    $('vecExclude').addEventListener('change', vecCompute);
+    document.querySelectorAll('[data-vp]').forEach(b => b.addEventListener('click', () => {
+        const p = { gender: ['Rey', 'Hombre', 'Mujer'], capital: ['París', 'Francia', 'Italia'],
+                    verbs: ['Caminó', 'Caminar', 'Hablar'] }[b.dataset.vp];
+        $('vecA').value = p[0]; $('vecB').value = p[1]; $('vecC').value = p[2];
+        vecCompute();
+    }));
+    $('vecA').value = 'Rey'; $('vecB').value = 'Hombre'; $('vecC').value = 'Mujer';
+    vecCompute();
+    simMatrix();
+}
+
+/* ═══════════════ TAB 5 · Quiz ═══════════════ */
+const QUIZ = [
+    { q: 'Una RNN procesa una frase de 40 palabras. ¿Cuántas matrices \\(W_{hh}\\) distintas tiene?',
+      opts: ['40, una por paso temporal', 'Una sola, reutilizada en los 40 pasos', '2: una para adelante y otra para atrás', 'Depende del tamaño del vocabulario'],
+      answer: 1,
+      why: 'La recurrencia es precisamente <em>compartir</em> los pesos en el tiempo: los mismos \\(W_{hh}\\), \\(W_{xh}\\) y \\(b\\) se aplican en cada paso. Por eso la red acepta secuencias de cualquier largo sin cambiar de tamaño. Y por eso, al retropropagar, el <em>mismo</em> factor se multiplica una vez por paso — la causa directa del gradiente que se desvanece.' },
+    { q: 'Con \\(W_{hh}\\cdot\\tanh\' = 0.8\\), ¿qué queda del gradiente 30 pasos atrás?',
+      opts: ['\\(0.8 \\times 30 = 24\\)', '\\(0.8^{30} \\approx 0.0012\\): la red es ciega a esa distancia', '0.8, constante', 'Crece: 30 pasos acumulan más señal'],
+      answer: 1,
+      why: 'El decaimiento es exponencial, no lineal. Con λ = 0.8, a los 30 pasos queda poco más de una milésima: si el sujeto de la frase está 30 palabras antes del verbo, la RNN no puede aprender esa concordancia. El horizonte útil sale de \\(\\log(0.01)/\\log(\\lambda)\\) — unos 20 pasos aquí.' },
+    { q: '¿Por qué la LSTM protege el gradiente mejor que una RNN clásica?',
+      opts: ['Porque usa ReLU en vez de tanh',
+             'Porque el estado de celda se actualiza de forma <em>aditiva</em> (\\(C_t = f\\,C_{t-1} + \\dots\\)) y f puede quedarse cerca de 1',
+             'Porque tiene más parámetros',
+             'Porque procesa la secuencia al revés'],
+      answer: 1,
+      why: 'La clave es el camino aditivo de la celda: derivando \\(C_t = f\\,C_{t-1} + i\\,\\tilde C_t\\) respecto de \\(C_{t-1}\\) sale el factor \\(f\\), no un producto de matrices y derivadas de tanh. Si la red aprende \\(f \\approx 1\\), el gradiente viaja intacto —el <em>constant error carousel</em>—. Y "cerca de 1" es una decisión aprendida, no un accidente: por eso el sesgo de la compuerta de olvido se inicializa positivo.' },
+    { q: 'La analogía "Rey − Hombre + Mujer" devuelve "Rey" como respuesta más cercana. ¿Qué pasó?',
+      opts: ['Los embeddings están mal entrenados',
+             'No se excluyó la palabra de partida del ranking: "Rey" sigue siendo lo más parecido al resultado',
+             'La resta de vectores no es válida',
+             'Falta normalizar los vectores'],
+      answer: 1,
+      why: 'El vector resultante suele quedar <em>cerca</em> de \\(a\\), simplemente porque el desplazamiento es pequeño comparado con la magnitud del vector. Toda evaluación seria de analogías excluye \\(a\\), \\(b\\) y \\(c\\) de los candidatos. Prueba la casilla en la pestaña 4: sin exclusión gana "Rey"; con exclusión, "Reina".' },
+    { q: 'GRU frente a LSTM: ¿cuál es la diferencia estructural?',
+      opts: ['La GRU no tiene memoria',
+             'La GRU fusiona celda y estado oculto y usa 2 compuertas en lugar de 3',
+             'La GRU solo funciona con secuencias cortas',
+             'La GRU no usa activaciones no lineales'],
+      answer: 1,
+      why: 'La GRU une \\(C_t\\) y \\(h_t\\) en un único estado, y sustituye forget+input por una sola compuerta de actualización \\(z\\) que interpola entre conservar y escribir (\\(h_t = (1-z)h_{t-1} + z\\tilde h_t\\)), más una de reset \\(r\\). Menos parámetros y algo más rápida; en la práctica el rendimiento es comparable y la elección suele ser empírica.' }
+];
+
+/* ═══════════════ Arranque ═══════════════ */
+Lab.init({
+    classNumber: 3,
+    setup() {
+        ['rnnT', 'rnnScale'].forEach(id => $(id).addEventListener('input', rnnUpdate));
+        $('rnnSent').addEventListener('change', rnnUpdate);
+        rnnUpdate();
+        cellInit();
+        ['bpW', 'bpTanh', 'bpF', 'bpT'].forEach(id => $(id).addEventListener('input', bpttUpdate));
+        bpttUpdate();
+        vecInit();
+        Lab.quiz('quizBox', QUIZ, '🎯 Compruébalo — Clase 3');
+    }
+});
+})();
+</script>
+</body>
+</html>

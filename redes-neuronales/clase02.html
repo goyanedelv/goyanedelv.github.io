@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clase 02 — Convoluciones, Normalización, ResNets y Optimizadores | Laboratorio RNA</title>
+<meta name="description" content="Laboratorio interactivo: convolución 2D con padding y stride, BatchNorm vs LayerNorm, atajos residuales y carrera de optimizadores.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<link rel="stylesheet" href="assets/lab.css">
+<script src="assets/lab.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="initKaTeX()"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+    .header-box h1 { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-emerald)); -webkit-background-clip: text; background-clip: text; }
+    .conv-stage { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+    .conv-op { font-size: 1.4rem; font-weight: 700; color: var(--accent-cyan); align-self: center; padding-top: 1.6rem; }
+    .kernel-cell { width: 44px; height: 34px; }
+    .kernel-cell input { width: 100%; height: 100%; background: transparent; border: none; color: inherit; text-align: center; font-family: 'Fira Code', monospace; font-size: 0.78rem; font-weight: 600; padding: 0; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+
+<nav>
+    <a href="index.html" class="nav-brand"><span>&larr;</span> Laboratorio RNA</a>
+    <div class="nav-links"></div>
+</nav>
+
+<div class="container" id="main">
+    <div class="header-box">
+        <h1>Clase 02 — Convoluciones, normalización, ResNets y optimizadores</h1>
+        <p>Desliza un kernel editable sobre una imagen y ve nacer el mapa de características; comprueba que
+           BatchNorm y LayerNorm promedian por ejes distintos; encadena Jacobianos hasta que el gradiente muere;
+           y haz correr cuatro optimizadores por el mismo valle.</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn" data-tab="tab1">1 · Convolución 2D</button>
+        <button class="tab-btn" data-tab="tab2">2 · BatchNorm vs LayerNorm</button>
+        <button class="tab-btn" data-tab="tab3">3 · Atajos residuales</button>
+        <button class="tab-btn" data-tab="tab4">4 · Carrera de optimizadores</button>
+        <button class="tab-btn" data-tab="tab5">5 · Compruébalo</button>
+    </div>
+
+    <!-- ══════════════ TAB 1 ══════════════ -->
+    <div id="tab1" class="tab-content">
+        <div class="card">
+            <div class="card-title">El kernel recorre la imagen <span id="convPos" class="pill info"></span></div>
+            <div class="conv-stage">
+                <div>
+                    <div class="matrix-caption">Entrada <span id="convInDim" class="mono"></span></div>
+                    <div id="convInput"></div>
+                </div>
+                <div class="conv-op">✻</div>
+                <div>
+                    <div class="matrix-caption">Kernel 3×3 <span class="small text-sub">(editable)</span></div>
+                    <div id="convKernel"></div>
+                </div>
+                <div class="conv-op">=</div>
+                <div>
+                    <div class="matrix-caption">Mapa de salida <span id="convOutDim" class="mono"></span></div>
+                    <div id="convOutput"></div>
+                    <div id="convBar"></div>
+                </div>
+            </div>
+            <div class="readout mt-3" id="convDetail"></div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">Controles</div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="convImg">Imagen de entrada</label>
+                        <select id="convImg">
+                            <option value="apunte">Ejemplo del apunte (4×4, sección 2.1.2)</option>
+                            <option value="vedge">Borde vertical (8×8)</option>
+                            <option value="hedge">Borde horizontal (8×8)</option>
+                            <option value="cross">Cruz (8×8)</option>
+                            <option value="diag">Diagonal (8×8)</option>
+                            <option value="digit">Dígito "7" (8×8)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="convKsel">Kernel</label>
+                        <select id="convKsel">
+                            <option value="apunte">Borde vertical simple — el del apunte 2.1.2</option>
+                            <option value="sobelV">Sobel vertical — detecta bordes verticales</option>
+                            <option value="sobelH">Sobel horizontal — detecta bordes horizontales</option>
+                            <option value="sharpen">Enfoque (sharpen)</option>
+                            <option value="blur">Suavizado (promedio 3×3)</option>
+                            <option value="ridge">Realce de bordes (laplaciano)</option>
+                            <option value="identity">Identidad — no cambia nada</option>
+                        </select>
+                    </div>
+                    <div class="control-row">
+                        <div class="control-group">
+                            <label>Stride \(S\)</label>
+                            <div class="btn-group" id="convStrideBtns">
+                                <button class="btn btn-sm" data-s="1">1</button>
+                                <button class="btn btn-sm btn-outline" data-s="2">2</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>Padding \(P\)</label>
+                            <div class="btn-group" id="convPadBtns">
+                                <button class="btn btn-sm" data-p="0">0 — válida</button>
+                                <button class="btn btn-sm btn-outline" data-p="1">1 — marco de ceros</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm" id="convStep">Siguiente posición →</button>
+                        <button class="btn btn-sm btn-outline" id="convPlay">Recorrer todo</button>
+                        <button class="btn btn-sm btn-outline" id="convReset">Reiniciar</button>
+                    </div>
+                </div>
+                <p class="fig-note mt-2">También puedes <strong>hacer clic en cualquier celda del mapa de salida</strong>
+                   para ver de qué parche vino, y <strong>editar los números del kernel</strong> a mano.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Aritmética de dimensiones</div>
+                <div class="formula-box" id="convFormula"></div>
+                <div class="stat-row">
+                    <div class="stat"><div class="stat-label">Pesos del kernel</div><div class="stat-value" id="convParams">9</div>
+                        <div class="stat-hint">+1 sesgo, sin importar el tamaño de la imagen</div></div>
+                    <div class="stat"><div class="stat-label">Si fuera densa</div><div class="stat-value" id="convDense">—</div>
+                        <div class="stat-hint">conexión total entrada→salida</div></div>
+                </div>
+                <div class="note">
+                    <strong>Reparto de parámetros.</strong> Los mismos 9 pesos se aplican en <em>todas</em> las
+                    posiciones. Por eso una CNN detecta un borde esté donde esté (equivarianza a traslaciones) y por eso
+                    su número de parámetros no crece con el tamaño de la imagen — la comparación de la derecha es la
+                    razón por la que el MLP no sirve para visión.
+                </div>
+                <div class="note warn">
+                    <strong>Ojo con el nombre.</strong> Lo que calculan las librerías (y esta página) es técnicamente
+                    una <em>correlación cruzada</em>: la convolución matemática voltea el kernel 180°. Como los pesos
+                    se aprenden, la diferencia es irrelevante en la práctica, pero explica la discrepancia si comparas
+                    con un libro de procesamiento de señales.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 2 ══════════════ -->
+    <div id="tab2" class="tab-content">
+        <div class="card">
+            <div class="card-title">La única diferencia es el eje sobre el que se promedia</div>
+            <p class="card-sub">Misma fórmula, distinto conjunto de números que entra en la media:
+                \( \hat{x} = \dfrac{x - \mu}{\sqrt{\sigma^2 + \epsilon}} \). Pasa el ratón (o el foco) por una celda
+                para ver <strong>iluminado el grupo con el que se normaliza</strong>.</p>
+
+            <div class="controls mb-2">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="normN">Muestras del batch \(N\) <output id="v_normN">4</output></label>
+                        <input type="range" id="normN" min="2" max="6" step="1" value="4">
+                    </div>
+                    <div class="control-group">
+                        <label for="normD">Características \(D\) <output id="v_normD">4</output></label>
+                        <input type="range" id="normD" min="2" max="6" step="1" value="4">
+                    </div>
+                    <div class="control-group">
+                        <label>Modo</label>
+                        <div class="btn-group">
+                            <button class="btn btn-sm" id="btnBN">BatchNorm — eje \(N\)</button>
+                            <button class="btn btn-sm btn-outline" id="btnLN">LayerNorm — eje \(D\)</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline" id="normApunte">Cargar el ejemplo del apunte: [2, 4, 6, 8]</button>
+                    <button class="btn btn-sm btn-outline" id="normShuffle">Otros datos</button>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div>
+                    <div class="matrix-caption">Entrada \(x\)</div>
+                    <div id="normIn"></div>
+                    <div id="normStatsIn" class="readout mt-2"></div>
+                </div>
+                <div>
+                    <div class="matrix-caption">Salida normalizada \(\hat{x}\)</div>
+                    <div id="normOut"></div>
+                    <div id="normStatsOut" class="readout mt-2"></div>
+                </div>
+            </div>
+
+            <div class="note mt-3" id="normNote"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">¿Y si el batch es pequeño?</div>
+            <p class="card-sub">BatchNorm estima \(\mu\) y \(\sigma^2\) con \(N\) muestras. Con \(N\) chico, esa
+                estimación es ruidosa y cambia de un batch a otro: el <em>mismo</em> ejemplo se normaliza distinto
+                según con quién le toque viajar. LayerNorm no tiene ese problema porque nunca mira a los vecinos.</p>
+            <div class="chart-box" style="height:220px"><canvas id="normVarCanvas"></canvas></div>
+            <p class="fig-note">Desviación típica del estadístico \(\mu_B\) estimado, en función del tamaño de batch
+                (cae como \(1/\sqrt{N}\)). Es la razón concreta por la que los Transformers usan LayerNorm.</p>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 3 ══════════════ -->
+    <div id="tab3" class="tab-content">
+        <div class="grid-2 wide-left">
+            <div class="card">
+                <div class="card-title">Magnitud del gradiente al retroceder por la red</div>
+                <div class="chart-box" style="height:300px"><canvas id="resCanvas"></canvas></div>
+                <p class="fig-note">Simulación real: en cada capa se sortea un factor Jacobiano
+                    \(\partial\mathcal{F}/\partial x\) alrededor de la media que fijes. La red plana <strong>multiplica</strong>
+                    esos factores; la residual multiplica \((\text{factor} + 1)\). Eje logarítmico.</p>
+            </div>
+            <div class="card">
+                <div class="card-title">Controles</div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="resDepth">Profundidad (capas) <output id="v_resDepth">20</output></label>
+                        <input type="range" id="resDepth" min="5" max="60" step="1" value="20">
+                    </div>
+                    <div class="control-group">
+                        <label for="resFactor">Factor medio por capa <output id="v_resFactor">0.75</output></label>
+                        <input type="range" id="resFactor" min="0.30" max="1.40" step="0.01" value="0.75">
+                    </div>
+                    <div class="control-group">
+                        <label for="resNoise">Dispersión entre capas <output id="v_resNoise">0.10</output></label>
+                        <input type="range" id="resNoise" min="0" max="0.4" step="0.01" value="0.10">
+                    </div>
+                    <div class="btn-group"><button class="btn btn-sm btn-outline" id="resReseed">Otro sorteo</button></div>
+                </div>
+
+                <div class="stat-row mt-2">
+                    <div class="stat"><div class="stat-label">Gradiente en la capa 1</div>
+                        <div class="stat-value" id="resPlain">—</div><div class="stat-hint">red plana</div></div>
+                    <div class="stat"><div class="stat-label">Gradiente en la capa 1</div>
+                        <div class="stat-value" id="resRes">—</div><div class="stat-hint">red residual</div></div>
+                </div>
+                <div class="mt-2" id="resVerdict"></div>
+
+                <div class="formula-box mt-2">
+                    \[ y = \mathcal{F}(x) + x \;\Longrightarrow\; \frac{\partial \mathcal{L}}{\partial x}
+                       = \frac{\partial \mathcal{L}}{\partial y}\left( \frac{\partial \mathcal{F}}{\partial x} + 1 \right) \]
+                </div>
+                <div class="note">
+                    <strong>El "+1" es todo.</strong> Sin atajo, el gradiente es un producto de números menores que 1
+                    y se apaga exponencialmente. Con atajo, cada factor vale al menos ≈1: existe un camino por el que
+                    el gradiente llega al principio <em>sin atenuarse</em>. Sube el factor medio por encima de 1 y
+                    verás el problema simétrico — el gradiente que <em>explota</em>, que es lo que arregla el
+                    recorte de norma (<em>gradient clipping</em>).
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 4 ══════════════ -->
+    <div id="tab4" class="tab-content">
+        <div class="grid-2 wide-left">
+            <div class="card">
+                <div class="card-title">Cuatro optimizadores, el mismo valle</div>
+                <canvas id="raceCanvas" data-ratio="0.68" aria-label="Trayectorias de SGD, Momentum, RMSProp y Adam sobre una superficie de pérdida"></canvas>
+                <div class="legend">
+                    <span class="legend-item"><span class="legend-swatch line" style="background:var(--series-1)"></span>SGD</span>
+                    <span class="legend-item"><span class="legend-swatch line" style="background:var(--series-2)"></span>Momentum</span>
+                    <span class="legend-item"><span class="legend-swatch line" style="background:var(--series-3)"></span>RMSProp</span>
+                    <span class="legend-item"><span class="legend-swatch line" style="background:var(--series-5)"></span>Adam</span>
+                </div>
+                <p class="fig-note">Superficie mal condicionada: casi plana en \(w_1\), muy empinada en \(w_2\).
+                    Es la situación en la que SGD zigzaguea y apenas avanza hacia el mínimo.</p>
+            </div>
+            <div class="card">
+                <div class="card-title">Controles y marcador</div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="raceLr">Tasa de aprendizaje <output id="v_raceLr">0.08</output></label>
+                        <input type="range" id="raceLr" min="0.01" max="0.4" step="0.01" value="0.08">
+                    </div>
+                    <div class="control-group">
+                        <label for="raceBias">Corrección de sesgo en Adam</label>
+                        <select id="raceBias">
+                            <option value="on">Activada (Adam correcto)</option>
+                            <option value="off">Desactivada — mira el primer paso</option>
+                        </select>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm" id="raceStart">Iniciar carrera</button>
+                        <button class="btn btn-sm btn-outline" id="raceStep">Un paso</button>
+                        <button class="btn btn-sm btn-outline" id="raceReset">Reiniciar</button>
+                    </div>
+                </div>
+                <div class="table-wrap mt-2">
+                    <table class="data-table">
+                        <thead><tr><th>Optimizador</th><th>Pérdida</th><th>Pasos</th><th>Estado</th></tr></thead>
+                        <tbody id="raceBoard"></tbody>
+                    </table>
+                </div>
+                <div class="chart-box mt-2" style="height:190px"><canvas id="raceLossCanvas"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Por qué la corrección de sesgo importa: el primer paso de Adam</div>
+            <div class="grid-2">
+                <div class="readout" id="adamBias"></div>
+                <div>
+                    <p class="small text-sub">Adam arranca con \(m_0 = v_0 = 0\). En \(t=1\) ambos acumuladores están
+                        pegados al cero, y el cociente \(m/\sqrt{v}\) sale distorsionado. Dividir por
+                        \(1-\beta^t\) deshace exactamente ese sesgo de arranque; el corrector se desvanece solo
+                        conforme \(t\) crece.</p>
+                    <div class="chart-box" style="height:190px"><canvas id="biasCanvas"></canvas></div>
+                    <p class="fig-note">Tamaño relativo del primer paso, con y sin corrección, a lo largo de las
+                        primeras iteraciones.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 5 ══════════════ -->
+    <div id="tab5" class="tab-content">
+        <div id="quizBox"></div>
+        <div class="card">
+            <div class="card-title">Para seguir jugando</div>
+            <ul class="small text-sub" style="padding-left:1.2rem; display:flex; flex-direction:column; gap:0.4rem">
+                <li>Pon el Sobel vertical sobre la imagen de borde <em>horizontal</em>: la salida es casi toda cero. Un detector solo ve lo que busca.</li>
+                <li>Carga el ejemplo del apunte con padding 0 y stride 1: la salida 2×2 debe dar exactamente <span class="mono">−2 −2 / −1 −3</span>.</li>
+                <li>En la pestaña 2, baja \(N\) a 2 con BatchNorm: con dos muestras, la normalización las manda siempre a ±1 pase lo que pase.</li>
+                <li>En la 3, sube el factor medio a 1.2: el gradiente <em>explota</em> en la red plana. El atajo no lo salva — para eso está el recorte de norma.</li>
+                <li>En la 4, apaga la corrección de sesgo y mira el primer salto de Adam: se pasa ~3× de largo, justo lo que dice el apunte.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<footer class="lab-footer"></footer>
+
+<script>
+(function () {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const fmt = Lab.fmt;
+
+/* ═══════════════ TAB 1 · Convolución ═══════════════ */
+const IMAGES = {
+    apunte: [[1,2,0,1],[0,1,3,2],[1,0,1,2],[2,1,0,1]],
+    vedge:  [[0,0,0,9,9,9,9,9],[0,0,0,9,9,9,9,9],[0,0,0,9,9,9,9,9],[0,0,0,9,9,9,9,9],
+             [0,0,0,9,9,9,9,9],[0,0,0,9,9,9,9,9],[0,0,0,9,9,9,9,9],[0,0,0,9,9,9,9,9]],
+    hedge:  [[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],
+             [9,9,9,9,9,9,9,9],[9,9,9,9,9,9,9,9],[9,9,9,9,9,9,9,9],[9,9,9,9,9,9,9,9]],
+    cross:  [[0,0,0,9,9,0,0,0],[0,0,0,9,9,0,0,0],[0,0,0,9,9,0,0,0],[9,9,9,9,9,9,9,9],
+             [9,9,9,9,9,9,9,9],[0,0,0,9,9,0,0,0],[0,0,0,9,9,0,0,0],[0,0,0,9,9,0,0,0]],
+    diag:   [[9,0,0,0,0,0,0,0],[9,9,0,0,0,0,0,0],[0,9,9,0,0,0,0,0],[0,0,9,9,0,0,0,0],
+             [0,0,0,9,9,0,0,0],[0,0,0,0,9,9,0,0],[0,0,0,0,0,9,9,0],[0,0,0,0,0,0,9,9]],
+    digit:  [[0,9,9,9,9,9,9,0],[0,0,0,0,0,0,9,0],[0,0,0,0,0,9,0,0],[0,0,0,0,9,0,0,0],
+             [0,0,0,9,9,9,0,0],[0,0,0,0,9,0,0,0],[0,0,0,9,0,0,0,0],[0,0,9,0,0,0,0,0]]
+};
+const KERNELS = {
+    apunte:   [[1,0,-1],[1,0,-1],[1,0,-1]],
+    sobelV:   [[1,0,-1],[2,0,-2],[1,0,-1]],
+    sobelH:   [[1,2,1],[0,0,0],[-1,-2,-1]],
+    sharpen:  [[0,-1,0],[-1,5,-1],[0,-1,0]],
+    blur:     [[1/9,1/9,1/9],[1/9,1/9,1/9],[1/9,1/9,1/9]],
+    ridge:    [[-1,-1,-1],[-1,8,-1],[-1,-1,-1]],
+    identity: [[0,0,0],[0,1,0],[0,0,0]]
+};
+const cv = { img: 'apunte', K: KERNELS.apunte.map(r => r.slice()), S: 1, P: 0, idx: 0, timer: null };
+
+const cvPadded = () => {
+    const src = IMAGES[cv.img], n = src.length, p = cv.P;
+    if (!p) return src.map(r => r.slice());
+    const m = Lab.M.zeros(n + 2 * p, n + 2 * p);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) m[r + p][c + p] = src[r][c];
+    return m;
+};
+const cvOutSize = () => Math.floor((IMAGES[cv.img].length - 3 + 2 * cv.P) / cv.S) + 1;
+
+function cvOutputMatrix() {
+    const pad = cvPadded(), O = cvOutSize(), out = Lab.M.zeros(O, O);
+    for (let r = 0; r < O; r++) for (let c = 0; c < O; c++) {
+        let s = 0;
+        for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) s += pad[r * cv.S + a][c * cv.S + b] * cv.K[a][b];
+        out[r][c] = s;
+    }
+    return out;
+}
+
+function cvRender() {
+    const pad = cvPadded(), O = cvOutSize(), out = cvOutputMatrix();
+    const total = O * O;
+    if (cv.idx >= total) cv.idx = 0;
+    const orow = Math.floor(cv.idx / O), ocol = cv.idx % O;
+    const sr = orow * cv.S, sc = ocol * cv.S;
+    const n0 = IMAGES[cv.img].length;
+
+    $('convInDim').textContent = `${n0}×${n0}${cv.P ? ` → ${pad.length}×${pad.length} con padding` : ''}`;
+    $('convOutDim').textContent = `${O}×${O}`;
+    $('convPos').textContent = `posición ${cv.idx + 1} de ${total}`;
+
+    const inMax = Math.max(1, ...pad.flat().map(Math.abs));
+    Lab.heatmap('convInput', pad, {
+        scale: 'seq', max: inMax, digits: 0, small: n0 > 6,
+        cellClass: (r, c) => {
+            const inWin = r >= sr && r < sr + 3 && c >= sc && c < sc + 3;
+            const isPad = cv.P && (r < cv.P || c < cv.P || r >= pad.length - cv.P || c >= pad.length - cv.P);
+            return (inWin ? 'hl ' : '') + (isPad ? 'dim' : '');
+        },
+        tooltip: (r, c, v) => `x[${r}][${c}] = ${v}` + (cv.P && (r < cv.P || c < cv.P || r >= pad.length - cv.P || c >= pad.length - cv.P) ? ' (relleno)' : '')
+    });
+
+    // Kernel editable
+    const kc = $('convKernel');
+    kc.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'matrix';
+    grid.style.gridTemplateColumns = 'repeat(3, auto)';
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'matrix-cell kernel-cell';
+        const kMax = Math.max(1, ...cv.K.flat().map(Math.abs));
+        const kNeg = cv.K.some(rr => rr.some(x => x < 0));
+        const bg = kNeg ? Lab.divColor(cv.K[r][c], kMax) : Lab.seqColor(Math.abs(cv.K[r][c]) / kMax);
+        cell.style.background = bg;
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.value = Number.isInteger(cv.K[r][c]) ? cv.K[r][c] : cv.K[r][c].toFixed(2);
+        inp.style.color = Lab.inkOn(bg);
+        inp.setAttribute('aria-label', `peso del kernel fila ${r + 1} columna ${c + 1}`);
+        inp.addEventListener('change', () => {
+            const v = parseFloat(inp.value);
+            cv.K[r][c] = isFinite(v) ? v : 0;
+            $('convKsel').value = '';
+            cvRender();
+        });
+        cell.appendChild(inp);
+        grid.appendChild(cell);
+    }
+    kc.appendChild(grid);
+
+    const oMax = Math.max(1, ...out.flat().map(Math.abs));
+    Lab.heatmap('convOutput', out, {
+        scale: 'div', max: oMax, digits: 1, small: O > 5,
+        cellClass: (r, c) => (r === orow && c === ocol) ? 'hl' : '',
+        onCell: (r, c) => { cv.idx = r * O + c; cvRender(); },
+        tooltip: (r, c, v) => `salida[${r}][${c}] = ${fmt(v, 2)} — clic para ver el parche`
+    });
+    Lab.colorbar('convBar', -oMax, oMax, 'div');
+
+    // Desglose de la posición actual
+    const terms = [];
+    let sum = 0;
+    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) {
+        const x = pad[sr + a][sc + b], k = cv.K[a][b];
+        sum += x * k;
+        if (k !== 0) terms.push(`${fmt(x, 0)}·${Number.isInteger(k) ? k : fmt(k, 2)}`);
+    }
+    $('convDetail').innerHTML =
+        `Ventana con esquina superior izquierda en (${sr}, ${sc}) &nbsp;→&nbsp; salida[${orow}][${ocol}]<br>` +
+        `${terms.join(' + ').replace(/\+ -/g, '− ')} = <strong style="color:var(--accent-cyan)">${fmt(sum, 2)}</strong>` +
+        (terms.length === 0 ? ' <span class="text-sub">(todos los pesos son cero)</span>' : '');
+
+    const W = n0;
+    $('convFormula').innerHTML = `\\[ O = \\left\\lfloor \\frac{W - K + 2P}{S} \\right\\rfloor + 1 =
+        \\left\\lfloor \\frac{${W} - 3 + ${2 * cv.P}}{${cv.S}} \\right\\rfloor + 1 = ${O} \\]`;
+    Lab.renderMath($('convFormula'));
+    $('convParams').textContent = '9';
+    $('convDense').textContent = Lab.fmtInt(W * W * O * O);
+}
+
+function cvInit() {
+    $('convImg').addEventListener('change', () => {
+        cv.img = $('convImg').value; cv.idx = 0;
+        if (cv.img === 'apunte') { $('convKsel').value = 'apunte'; cv.K = KERNELS.apunte.map(r => r.slice()); }
+        cvRender();
+    });
+    $('convKsel').addEventListener('change', () => {
+        const k = KERNELS[$('convKsel').value];
+        if (k) cv.K = k.map(r => r.slice());
+        cvRender();
+    });
+    $('convStrideBtns').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-s]'); if (!b) return;
+        cv.S = +b.dataset.s; cv.idx = 0;
+        $('convStrideBtns').querySelectorAll('button').forEach(x => x.className = 'btn btn-sm' + (x === b ? '' : ' btn-outline'));
+        cvRender();
+    });
+    $('convPadBtns').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-p]'); if (!b) return;
+        cv.P = +b.dataset.p; cv.idx = 0;
+        $('convPadBtns').querySelectorAll('button').forEach(x => x.className = 'btn btn-sm' + (x === b ? '' : ' btn-outline'));
+        cvRender();
+    });
+    $('convStep').addEventListener('click', () => { cv.idx++; cvRender(); });
+    $('convReset').addEventListener('click', () => { cv.idx = 0; cvRender(); });
+    $('convPlay').addEventListener('click', () => {
+        if (cv.timer) { clearInterval(cv.timer); cv.timer = null; $('convPlay').textContent = 'Recorrer todo'; return; }
+        $('convPlay').textContent = 'Pausar';
+        cv.timer = setInterval(() => { cv.idx++; cvRender(); }, 260);
+    });
+    cvRender();
+}
+
+/* ═══════════════ TAB 2 · Normalización ═══════════════ */
+const nm = { mode: 'BN', data: null, seed: 3 };
+
+function nmGenerate() {
+    const N = +$('normN').value, D = +$('normD').value;
+    const r = Lab.rng(nm.seed);
+    nm.data = Array.from({ length: N }, (_, i) =>
+        Array.from({ length: D }, (_, j) => Math.round((3 + 2 * i + Lab.gauss(r) * 2.5 + j * 0.8) * 10) / 10));
+}
+
+function nmStats(vals) {
+    const mu = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const va = vals.reduce((s, v) => s + (v - mu) ** 2, 0) / vals.length;
+    return { mu, va, sd: Math.sqrt(va) };
+}
+
+function nmUpdate() {
+    const N = +$('normN').value, D = +$('normD').value;
+    $('v_normN').textContent = N; $('v_normD').textContent = D;
+    if (!nm.data || nm.data.length !== N || nm.data[0].length !== D) nmGenerate();
+
+    const X = nm.data, eps = 1e-5;
+    const BN = nm.mode === 'BN';
+
+    // Estadísticos por el eje correspondiente
+    const groups = BN
+        ? Array.from({ length: D }, (_, j) => X.map(row => row[j]))   // una columna por feature
+        : X.map(row => row.slice());                                  // una fila por muestra
+    const st = groups.map(nmStats);
+
+    const Xhat = X.map((row, i) => row.map((v, j) => {
+        const s = BN ? st[j] : st[i];
+        return (v - s.mu) / Math.sqrt(s.va + eps);
+    }));
+
+    const rowL = Array.from({ length: N }, (_, i) => `muestra ${i + 1}`);
+    const colL = Array.from({ length: D }, (_, j) => `feat ${j + 1}`);
+    const hlClass = (r, c) => 'nm-cell';
+
+    Lab.heatmap('normIn', X, {
+        scale: 'div', digits: 1, small: D > 4, rowLabels: rowL, colLabels: colL,
+        cellClass: hlClass,
+        tooltip: (r, c, v) => BN
+            ? `x[${r + 1}][${c + 1}] = ${v} · se normaliza con la columna "${colL[c]}" (μ=${fmt(st[c].mu, 2)})`
+            : `x[${r + 1}][${c + 1}] = ${v} · se normaliza con la fila "${rowL[r]}" (μ=${fmt(st[r].mu, 2)})`
+    });
+    Lab.heatmap('normOut', Xhat, {
+        scale: 'div', max: 2.5, digits: 2, small: D > 4, rowLabels: rowL, colLabels: colL,
+        cellClass: hlClass,
+        tooltip: (r, c, v) => `x̂ = (${X[r][c]} − ${fmt((BN ? st[c] : st[r]).mu, 2)}) / √(${fmt((BN ? st[c] : st[r]).va, 2)} + ε) = ${fmt(v, 3)}`
+    });
+
+    // Resalta el grupo de reducción al pasar por encima
+    const wire = (containerId) => {
+        document.querySelectorAll(`#${containerId} .matrix-cell`).forEach((cell, k) => {
+            const r = Math.floor(k / D), c = k % D;
+            cell.addEventListener('mouseenter', () => nmHighlight(r, c, N, D));
+            cell.addEventListener('mouseleave', nmClearHighlight);
+            cell.tabIndex = 0;
+            cell.addEventListener('focus', () => nmHighlight(r, c, N, D));
+            cell.addEventListener('blur', nmClearHighlight);
+        });
+    };
+    wire('normIn'); wire('normOut');
+
+    const gLabel = BN ? 'columna (una por característica)' : 'fila (una por muestra)';
+    const fmtGroup = (s, i) => `${BN ? colL[i] : rowL[i]}: μ = ${fmt(s.mu, 3).padStart(7)}   σ = ${fmt(s.sd, 3).padStart(6)}`;
+    $('normStatsIn').innerHTML = `<strong>Estadísticos por ${gLabel}</strong><br>` + st.map(fmtGroup).join('<br>');
+
+    const stAfter = (BN
+        ? Array.from({ length: D }, (_, j) => Xhat.map(row => row[j]))
+        : Xhat.map(row => row.slice())).map(nmStats);
+    $('normStatsOut').innerHTML = `<strong>Comprobación tras normalizar</strong><br>` +
+        stAfter.map((s, i) => `${BN ? colL[i] : rowL[i]}: μ = ${fmt(Math.abs(s.mu) < 1e-9 ? 0 : s.mu, 3)}   σ = ${fmt(s.sd, 3)}`).join('<br>') +
+        `<br><span class="pill ok">media 0, desviación 1</span>`;
+
+    $('normNote').innerHTML = BN
+        ? `<strong>BatchNorm normaliza hacia abajo.</strong> Cada <em>columna</em> (una característica) se estandariza usando las ${N} muestras del batch. Consecuencia: el resultado de una muestra <strong>depende de con quién comparta batch</strong>, y en inferencia hay que usar medias móviles acumuladas — olvidar <span class="mono">model.eval()</span> es el error clásico.`
+        : `<strong>LayerNorm normaliza hacia el lado.</strong> Cada <em>fila</em> (una muestra) se estandariza usando sus ${D} características. Consecuencia: cada muestra se procesa <strong>de forma independiente</strong>, así que funciona igual con batch de 1 y con secuencias de longitud variable. Por eso es la que usan los Transformers.`;
+
+    // Ruido del estadístico en función de N
+    const ns = [], sds = [];
+    for (let n = 2; n <= 64; n++) { ns.push(String(n)); sds.push(1 / Math.sqrt(n)); }
+    Lab.chart('normVarCanvas', {
+        type: 'line',
+        data: { labels: ns, datasets: [{ label: 'σ del μ estimado', data: sds, borderColor: 'var(--series-2)' }] },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: 'tamaño de batch N', color: '#94a3b8' },
+                     ticks: { callback: (v, i) => ((i + 2) % 8 === 0 ? ns[i] : '') } },
+                y: { title: { display: true, text: 'ruido relativo', color: '#94a3b8' }, beginAtZero: true }
+            }
+        }
+    });
+}
+
+function nmHighlight(r, c, N, D) {
+    const BN = nm.mode === 'BN';
+    ['normIn', 'normOut'].forEach(id => {
+        document.querySelectorAll(`#${id} .matrix-cell`).forEach((cell, k) => {
+            const rr = Math.floor(k / D), cc = k % D;
+            const inGroup = BN ? cc === c : rr === r;
+            cell.classList.toggle('hl-row', inGroup);
+            cell.classList.toggle('dim', !inGroup);
+        });
+    });
+}
+function nmClearHighlight() {
+    document.querySelectorAll('.matrix-cell').forEach(c => c.classList.remove('hl-row', 'dim'));
+}
+
+function nmInit() {
+    ['normN', 'normD'].forEach(id => $(id).addEventListener('input', () => { nmGenerate(); nmUpdate(); }));
+    const setMode = (m) => {
+        nm.mode = m;
+        $('btnBN').className = 'btn btn-sm' + (m === 'BN' ? '' : ' btn-outline');
+        $('btnLN').className = 'btn btn-sm' + (m === 'LN' ? '' : ' btn-outline');
+        nmUpdate();
+    };
+    $('btnBN').addEventListener('click', () => setMode('BN'));
+    $('btnLN').addEventListener('click', () => setMode('LN'));
+    $('normShuffle').addEventListener('click', () => { nm.seed = Math.floor(Math.random() * 9999); nmGenerate(); nmUpdate(); });
+    $('normApunte').addEventListener('click', () => {
+        $('normN').value = 4; $('normD').value = 2;
+        nm.data = [[2, 1.5], [4, 3.0], [6, 5.5], [8, 7.0]];
+        setMode('BN');
+    });
+    nmUpdate();
+}
+
+/* ═══════════════ TAB 3 · ResNet ═══════════════ */
+let resSeed = 11;
+function resUpdate() {
+    const depth = +$('resDepth').value, mean = +$('resFactor').value, noise = +$('resNoise').value;
+    $('v_resDepth').textContent = depth;
+    $('v_resFactor').textContent = fmt(mean, 2);
+    $('v_resNoise').textContent = fmt(noise, 2);
+
+    const rand = Lab.rng(resSeed);
+    const labels = [], plain = [], res = [];
+    let p = 1, r = 1;
+    // Se recorre de la última capa hacia la primera: así se acumula el producto del backward.
+    for (let i = 0; i < depth; i++) {
+        const f = Math.max(0, mean + Lab.gauss(rand) * noise);
+        p *= f;
+        r *= (f + 1) / 1.6;      // el atajo aporta un "+1"; se normaliza para comparar escalas
+        labels.unshift(String(depth - i));
+        plain.unshift(p);
+        res.unshift(r);
+    }
+
+    Lab.chart('resCanvas', {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'red residual (F(x) + x)', data: res.map(v => Math.max(v, 1e-20)), borderColor: 'var(--series-3)', borderWidth: 3 },
+                { label: 'red plana', data: plain.map(v => Math.max(v, 1e-20)), borderColor: 'var(--series-2)', borderWidth: 3 }
+            ]
+        },
+        options: {
+            scales: {
+                y: { type: 'logarithmic', title: { display: true, text: 'magnitud del gradiente (log)', color: '#94a3b8' } },
+                x: { title: { display: true, text: '← capa (el gradiente viaja de derecha a izquierda)', color: '#94a3b8' },
+                     ticks: { callback: (v, i) => (i % Math.ceil(depth / 10) === 0 ? labels[i] : '') } }
+            }
+        }
+    });
+
+    $('resPlain').textContent = Lab.sci(plain[0], 1);
+    $('resRes').textContent = Lab.sci(res[0], 1);
+    $('resPlain').style.color = plain[0] < 1e-5 ? 'var(--bad)' : (plain[0] > 1e4 ? 'var(--bad)' : 'var(--text-main)');
+
+    let v;
+    if (plain[0] < 1e-6) v = `<span class="pill bad">gradiente desvanecido</span> <span class="small text-sub">La red plana no puede entrenar sus primeras capas: no les llega señal. La residual sí.</span>`;
+    else if (plain[0] > 1e4) v = `<span class="pill bad">gradiente explotado</span> <span class="small text-sub">Con factores &gt; 1 el producto crece sin control. El atajo no lo evita: aquí hace falta recorte de norma.</span>`;
+    else v = `<span class="pill ok">gradiente sano</span> <span class="small text-sub">A esta profundidad y con este factor, la red plana todavía entrena. Sube las capas y verás cuándo se rompe.</span>`;
+    $('resVerdict').innerHTML = v;
+}
+
+/* ═══════════════ TAB 4 · Optimizadores ═══════════════ */
+// L(w1,w2) = 0.1·w1² + 3·w2²  → mal condicionada (razón de curvaturas 1:30)
+const RL = (a, b) => 0.1 * a * a + 3 * b * b;
+const RG = (a, b) => [0.2 * a, 6 * b];
+const START = { a: -4.2, b: 2.6 };
+const OPT_COLORS = { SGD: 'var(--series-1)', Momentum: 'var(--series-2)', RMSProp: 'var(--series-3)', Adam: 'var(--series-5)' };
+let race = { parts: [], timer: null, t: 0 };
+
+function raceReset() {
+    race.t = 0;
+    race.parts = ['SGD', 'Momentum', 'RMSProp', 'Adam'].map(name => ({
+        name, a: START.a, b: START.b,
+        ma: 0, mb: 0, va: 0, vb: 0,
+        hist: [{ a: START.a, b: START.b }], losses: [RL(START.a, START.b)], done: false, steps: 0,
+        color: Lab.cssVar(OPT_COLORS[name].slice(4, -1))
+    }));
+    raceDraw(); raceBoard();
+}
+
+function raceStep() {
+    const lr = +$('raceLr').value;
+    const b1 = 0.9, b2 = 0.999, eps = 1e-8;
+    race.t++;
+    race.parts.forEach(p => {
+        if (p.done) return;
+        const [ga, gb] = RG(p.a, p.b);
+        if (p.name === 'SGD') {
+            p.a -= lr * ga; p.b -= lr * gb;
+        } else if (p.name === 'Momentum') {
+            p.ma = b1 * p.ma + ga; p.mb = b1 * p.mb + gb;
+            p.a -= lr * p.ma; p.b -= lr * p.mb;
+        } else if (p.name === 'RMSProp') {
+            p.va = 0.9 * p.va + 0.1 * ga * ga; p.vb = 0.9 * p.vb + 0.1 * gb * gb;
+            p.a -= lr * ga / (Math.sqrt(p.va) + eps);
+            p.b -= lr * gb / (Math.sqrt(p.vb) + eps);
+        } else {                                     // Adam completo
+            p.ma = b1 * p.ma + (1 - b1) * ga; p.mb = b1 * p.mb + (1 - b1) * gb;
+            p.va = b2 * p.va + (1 - b2) * ga * ga; p.vb = b2 * p.vb + (1 - b2) * gb * gb;
+            const corr = $('raceBias').value === 'on';
+            const mha = corr ? p.ma / (1 - Math.pow(b1, race.t)) : p.ma;
+            const mhb = corr ? p.mb / (1 - Math.pow(b1, race.t)) : p.mb;
+            const vha = corr ? p.va / (1 - Math.pow(b2, race.t)) : p.va;
+            const vhb = corr ? p.vb / (1 - Math.pow(b2, race.t)) : p.vb;
+            p.a -= lr * mha / (Math.sqrt(vha) + eps);
+            p.b -= lr * mhb / (Math.sqrt(vhb) + eps);
+        }
+        p.steps++;
+        p.hist.push({ a: p.a, b: p.b });
+        const l = RL(p.a, p.b);
+        p.losses.push(l);
+        if (l < 1e-4 || !isFinite(l) || Math.abs(p.a) > 60 || Math.abs(p.b) > 60) p.done = true;
+    });
+    raceDraw(); raceBoard();
+    if (race.parts.every(p => p.done) || race.t > 260) raceStop();
+}
+
+function raceDraw() {
+    const c = Lab.fitCanvas('raceCanvas', raceDraw);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    const RX = 5.5, RY = 3.2;
+    const X = (v) => W / 2 + v / RX * (W / 2 - 10);
+    const Y = (v) => H / 2 - v / RY * (H / 2 - 10);
+
+    ctx.clearRect(0, 0, W, H);
+    const cell = 4, cols = Math.ceil(W / cell), rows = Math.ceil(H / cell);
+    let lmax = RL(RX, RY);
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+        const a = ((i * cell + cell / 2) - W / 2) / (W / 2 - 10) * RX;
+        const b = -((j * cell + cell / 2) - H / 2) / (H / 2 - 10) * RY;
+        ctx.fillStyle = Lab.seqColor(Math.sqrt(Math.min(1, RL(a, b) / lmax)));
+        ctx.fillRect(i * cell, j * cell, cell, cell);
+    }
+
+    ctx.strokeStyle = 'rgba(11,18,32,0.25)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), H); ctx.stroke();
+
+    ctx.beginPath(); ctx.arc(X(0), Y(0), 6, 0, Math.PI * 2);
+    ctx.strokeStyle = '#0b1220'; ctx.lineWidth = 2; ctx.stroke();
+
+    race.parts.forEach(p => {
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2.2; ctx.beginPath();
+        p.hist.forEach((h, i) => { const px = X(h.a), py = Y(h.b); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(X(p.a), Y(p.b), 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = p.color; ctx.fill();
+        ctx.strokeStyle = '#0b1220'; ctx.lineWidth = 2; ctx.stroke();
+    });
+
+    ctx.fillStyle = '#0b1220'; ctx.font = '600 11px Fira Code';
+    ctx.fillText('w₁ →', W - 44, Y(0) - 8);
+    ctx.fillText('w₂ ↑', X(0) + 8, 14);
+}
+
+function raceBoard() {
+    const rank = race.parts.slice().sort((a, b) => RL(a.a, a.b) - RL(b.a, b.b));
+    $('raceBoard').innerHTML = rank.map(p => {
+        const l = RL(p.a, p.b);
+        const state = !isFinite(l) || Math.abs(p.a) > 60 ? '<span class="pill bad">divergió</span>'
+            : (l < 1e-4 ? '<span class="pill ok">llegó</span>' : '<span class="pill info">en curso</span>');
+        return `<tr>
+            <td><span class="legend-swatch" style="display:inline-block;background:${p.color}"></span> ${p.name}</td>
+            <td class="num">${isFinite(l) ? (l < 1e-4 ? Lab.sci(l, 1) : fmt(l, 3)) : '∞'}</td>
+            <td class="num">${p.steps}</td><td>${state}</td></tr>`;
+    }).join('');
+
+    Lab.chart('raceLossCanvas', {
+        type: 'line',
+        data: {
+            labels: race.parts[0].losses.map((_, i) => String(i)),
+            datasets: race.parts.map(p => ({
+                label: p.name,
+                data: p.losses.map(v => Math.max(isFinite(v) ? v : 1e10, 1e-9)),
+                borderColor: OPT_COLORS[p.name]
+            }))
+        },
+        options: {
+            scales: {
+                y: { type: 'logarithmic', title: { display: true, text: 'pérdida (log)', color: '#94a3b8' } },
+                x: { title: { display: true, text: 'paso', color: '#94a3b8' }, ticks: { callback: (v, i) => (i % 20 === 0 ? String(i) : '') } }
+            }
+        }
+    });
+}
+
+function raceStop() {
+    if (race.timer) { clearInterval(race.timer); race.timer = null; }
+    $('raceStart').textContent = 'Iniciar carrera';
+}
+
+function adamBiasPanel() {
+    const b1 = 0.9, b2 = 0.999;
+    let m = 0, v = 0;
+    const g = 1;
+    m = b1 * 0 + (1 - b1) * g;
+    v = b2 * 0 + (1 - b2) * g * g;
+    const mh = m / (1 - b1), vh = v / (1 - b2);
+    $('adamBias').innerHTML =
+        `<strong>Primer paso (t = 1), gradiente g = 1</strong><br>` +
+        `m₁ = 0.9·0 + 0.1·1 = <strong>${fmt(m, 3)}</strong><br>` +
+        `v₁ = 0.999·0 + 0.001·1 = <strong>${fmt(v, 4)}</strong><br><br>` +
+        `<span style="color:var(--ok)">CON corrección</span><br>` +
+        `m̂ = ${fmt(m, 3)} / (1 − 0.9) = <strong>${fmt(mh, 2)}</strong><br>` +
+        `v̂ = ${fmt(v, 4)} / (1 − 0.999) = <strong>${fmt(vh, 2)}</strong><br>` +
+        `paso ≈ η · ${fmt(mh, 2)} / √${fmt(vh, 2)} = <strong>${fmt(mh / Math.sqrt(vh), 2)} · η</strong> ✓<br><br>` +
+        `<span style="color:var(--bad)">SIN corrección</span><br>` +
+        `paso ≈ η · ${fmt(m, 3)} / √${fmt(v, 4)} = <strong>${fmt(m / Math.sqrt(v), 2)} · η</strong> ✗ (más de 3× de largo)`;
+
+    const ts = [], withC = [], without = [];
+    let mm = 0, vv = 0;
+    for (let t = 1; t <= 40; t++) {
+        mm = b1 * mm + (1 - b1) * g; vv = b2 * vv + (1 - b2) * g * g;
+        ts.push(String(t));
+        withC.push((mm / (1 - Math.pow(b1, t))) / (Math.sqrt(vv / (1 - Math.pow(b2, t))) + 1e-8));
+        without.push(mm / (Math.sqrt(vv) + 1e-8));
+    }
+    Lab.chart('biasCanvas', {
+        type: 'line',
+        data: {
+            labels: ts,
+            datasets: [
+                { label: 'con corrección', data: withC, borderColor: 'var(--series-3)' },
+                { label: 'sin corrección', data: without, borderColor: 'var(--series-2)' }
+            ]
+        },
+        options: {
+            scales: {
+                x: { title: { display: true, text: 'iteración t', color: '#94a3b8' }, ticks: { callback: (v, i) => ((i + 1) % 5 === 0 ? ts[i] : '') } },
+                y: { title: { display: true, text: 'paso relativo (×η)', color: '#94a3b8' } }
+            }
+        }
+    });
+}
+
+function raceInit() {
+    $('raceLr').addEventListener('input', () => { $('v_raceLr').textContent = fmt(+$('raceLr').value, 2); raceStop(); raceReset(); });
+    $('raceBias').addEventListener('change', () => { raceStop(); raceReset(); });
+    $('raceStep').addEventListener('click', raceStep);
+    $('raceReset').addEventListener('click', () => { raceStop(); raceReset(); });
+    $('raceStart').addEventListener('click', () => {
+        if (race.timer) { raceStop(); return; }
+        $('raceStart').textContent = 'Pausar';
+        race.timer = setInterval(raceStep, 55);
+    });
+    raceReset();
+    adamBiasPanel();
+}
+
+/* ═══════════════ TAB 5 · Quiz ═══════════════ */
+const QUIZ = [
+    { q: 'Una imagen 32×32 pasa por una capa conv con kernel 5×5, padding 2 y stride 2. ¿Qué tamaño sale?',
+      opts: ['16×16', '14×14', '32×32', '15×15'],
+      answer: 0,
+      why: '\\(O = \\lfloor (32 - 5 + 2\\cdot2)/2 \\rfloor + 1 = \\lfloor 31/2 \\rfloor + 1 = 15 + 1 = 16\\). El padding de 2 compensa exactamente el encogimiento del kernel 5×5 (que sería de \\(K-1=4\\)), así que el stride es lo único que reduce: a la mitad.' },
+    { q: '¿Por qué una CNN necesita muchísimos menos parámetros que un MLP para la misma imagen?',
+      opts: ['Porque usa menos capas',
+             'Porque comparte los mismos pesos del kernel en todas las posiciones de la imagen',
+             'Porque las imágenes tienen menos información que el texto',
+             'Porque el pooling elimina parámetros'],
+      answer: 1,
+      why: 'Es el <em>parameter sharing</em>: un kernel 3×3 tiene 9 pesos, se apliquen sobre una imagen de 8×8 o de 4000×4000. Un MLP necesitaría un peso por cada par (píxel de entrada, unidad de salida) — el contador "si fuera densa" de la pestaña 1 hace la comparación. Como bonus, compartir pesos da equivarianza a traslaciones: el detector de bordes funciona en cualquier parte de la imagen.' },
+    { q: 'Entrenas un Transformer con secuencias de longitud variable y batch de tamaño 1. ¿BatchNorm o LayerNorm?',
+      opts: ['BatchNorm, siempre es más estable',
+             'LayerNorm: normaliza dentro de cada muestra, así que no depende del batch',
+             'Da igual, son equivalentes',
+             'Ninguna: sin batch no se puede normalizar'],
+      answer: 1,
+      why: 'Con N = 1, BatchNorm no tiene de dónde sacar μ y σ² (la varianza del batch sería 0). LayerNorm promedia sobre las D características <em>de esa misma muestra</em>, así que funciona igual con batch de 1, de 512 o con secuencias de largo distinto. Esa independencia del batch es exactamente la razón por la que los Transformers la adoptaron.' },
+    { q: 'En una red plana de 40 capas cada Jacobiano vale ~0.8. ¿Qué le llega a la primera capa?',
+      opts: ['\\(40 \\times 0.8 = 32\\)', '\\(0.8^{40} \\approx 1.3\\times10^{-4}\\): prácticamente nada',
+             'Exactamente 0.8', 'Depende del batch'],
+      answer: 1,
+      why: 'Los Jacobianos se multiplican al encadenar la regla de la cadena, así que el gradiente decae <em>exponencialmente</em> con la profundidad. Con el atajo residual cada factor pasa a ser \\((0.8 + 1) = 1.8\\) — hay un camino directo por el que el gradiente llega sin atenuarse, y por eso ResNet pudo entrenar 152 capas cuando las redes planas se degradaban pasadas ~20.' },
+    { q: 'Sobre la superficie mal condicionada de la carrera, ¿por qué SGD zigzaguea y Adam no?',
+      opts: ['Adam usa una tasa de aprendizaje mayor',
+             'Adam escala cada dirección por la magnitud histórica de su gradiente, igualando el paso en ejes de curvatura muy distinta',
+             'Adam tiene menos parámetros',
+             'SGD no calcula bien el gradiente'],
+      answer: 1,
+      why: 'La superficie es 30 veces más empinada en \\(w_2\\) que en \\(w_1\\). SGD usa el mismo η para ambos: el que no diverge en \\(w_2\\) es demasiado tímido en \\(w_1\\), así que rebota entre las paredes y avanza lentísimo por el fondo. Adam divide cada componente por \\(\\sqrt{\\hat v}\\), su propia magnitud histórica, así que los dos ejes acaban dando pasos de tamaño comparable.' }
+];
+
+/* ═══════════════ Arranque ═══════════════ */
+Lab.init({
+    classNumber: 2,
+    setup() {
+        cvInit();
+        nmInit();
+        ['resDepth', 'resFactor', 'resNoise'].forEach(id => $(id).addEventListener('input', resUpdate));
+        $('resReseed').addEventListener('click', () => { resSeed = Math.floor(Math.random() * 9999); resUpdate(); });
+        resUpdate();
+        raceInit();
+        Lab.quiz('quizBox', QUIZ, '🎯 Compruébalo — Clase 2');
+    }
+});
+})();
+</script>
+</body>
+</html>

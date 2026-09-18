@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clase 01 — Fundamentos y Descenso de Gradiente | Laboratorio RNA</title>
+<meta name="description" content="Laboratorio interactivo: perceptrón, XOR, funciones de activación, aproximación universal, descenso de gradiente y backpropagation.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<link rel="stylesheet" href="assets/lab.css">
+<script src="assets/lab.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="initKaTeX()"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+
+<nav>
+    <a href="index.html" class="nav-brand"><span>&larr;</span> Laboratorio RNA</a>
+    <div class="nav-links"></div>
+</nav>
+
+<div class="container" id="main">
+    <div class="header-box">
+        <h1>Clase 01 — Fundamentos y descenso de gradiente</h1>
+        <p>Todo lo que ves aquí se calcula en vivo en tu navegador: no hay curvas dibujadas a mano.
+           Entrena un perceptrón hasta que falle con XOR, mide cuánto gradiente deja pasar cada activación
+           y sigue la regla de la cadena número por número.</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn" data-tab="tab1">1 · Perceptrón &amp; XOR</button>
+        <button class="tab-btn" data-tab="tab2">2 · Activaciones &amp; aproximación universal</button>
+        <button class="tab-btn" data-tab="tab3">3 · Descenso de gradiente</button>
+        <button class="tab-btn" data-tab="tab4">4 · Grafo &amp; backpropagation</button>
+        <button class="tab-btn" data-tab="tab5">5 · Compruébalo</button>
+    </div>
+
+    <!-- ══════════════ TAB 1 ══════════════ -->
+    <div id="tab1" class="tab-content">
+        <div class="grid-2 wide-left">
+            <div class="card">
+                <div class="card-title">Frontera de decisión <span id="pcModeTag" class="pill info">perceptrón</span></div>
+                <div class="formula-box">
+                    \[ \hat y = \text{step}(w_1 x_1 + w_2 x_2 + b), \qquad \text{frontera: } w_1 x_1 + w_2 x_2 + b = 0 \]
+                </div>
+                <canvas id="pcCanvas" data-ratio="0.78" aria-label="Plano de entrada con la frontera de decisión y los cuatro puntos del problema lógico"></canvas>
+                <div class="legend">
+                    <span class="legend-item"><span class="legend-swatch" style="background:var(--series-1)"></span>clase 1</span>
+                    <span class="legend-item"><span class="legend-swatch" style="background:var(--series-2)"></span>clase 0</span>
+                    <span class="legend-item"><span class="legend-swatch line" style="background:var(--text-main)"></span>frontera</span>
+                    <span class="legend-item"><span class="legend-swatch line" style="background:var(--series-6)"></span>neuronas ocultas (MLP)</span>
+                </div>
+                <p class="fig-note">El fondo colorea la región que la red clasifica como 1 o como 0. Cada punto lleva
+                    un borde blanco si está bien clasificado y un anillo rojo si está mal.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Controles</div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="pcDataset">Problema lógico</label>
+                        <div class="btn-group" id="pcDataset">
+                            <button class="btn btn-sm" data-ds="AND">AND</button>
+                            <button class="btn btn-sm btn-outline" data-ds="OR">OR</button>
+                            <button class="btn btn-sm btn-outline" data-ds="NAND">NAND</button>
+                            <button class="btn btn-sm btn-outline" data-ds="XOR">XOR</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Arquitectura</label>
+                        <div class="btn-group">
+                            <button class="btn btn-sm" id="pcBtnP">Perceptrón (1 recta)</button>
+                            <button class="btn btn-sm btn-outline" id="pcBtnM">MLP con 2 neuronas ocultas</button>
+                        </div>
+                    </div>
+
+                    <div id="pcPerceptronCtl">
+                        <div class="control-group">
+                            <label for="pcW1">Peso \(w_1\) <output id="v_pcW1">1.0</output></label>
+                            <input type="range" id="pcW1" min="-5" max="5" step="0.1" value="1">
+                        </div>
+                        <div class="control-group">
+                            <label for="pcW2">Peso \(w_2\) <output id="v_pcW2">1.0</output></label>
+                            <input type="range" id="pcW2" min="-5" max="5" step="0.1" value="1">
+                        </div>
+                        <div class="control-group">
+                            <label for="pcB">Sesgo \(b\) <output id="v_pcB">-1.5</output></label>
+                            <input type="range" id="pcB" min="-5" max="5" step="0.1" value="-1.5">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Entrenamiento automático</label>
+                        <div class="btn-group">
+                            <button class="btn btn-sm" id="pcTrain">Entrenar</button>
+                            <button class="btn btn-sm btn-outline" id="pcReset">Reiniciar pesos</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-row mt-2">
+                    <div class="stat">
+                        <div class="stat-label">Exactitud</div>
+                        <div class="stat-value" id="pcAcc">—</div>
+                        <div class="stat-hint">sobre los 4 puntos</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Época</div>
+                        <div class="stat-value" id="pcEpoch">0</div>
+                        <div class="stat-hint" id="pcRule">regla del perceptrón</div>
+                    </div>
+                </div>
+
+                <div class="readout mt-2" id="pcTable"></div>
+                <div class="note" id="pcNote"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 2 ══════════════ -->
+    <div id="tab2" class="tab-content">
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">Función de activación y su derivada</div>
+                <div class="controls mb-2">
+                    <div class="control-group">
+                        <label for="actSel">Función</label>
+                        <select id="actSel">
+                            <option value="sigmoid">Sigmoide — σ(x) = 1/(1+e⁻ˣ)</option>
+                            <option value="tanh">Tanh — (eˣ−e⁻ˣ)/(eˣ+e⁻ˣ)</option>
+                            <option value="relu">ReLU — max(0, x)</option>
+                            <option value="leaky">Leaky ReLU — max(0.1x, x)</option>
+                            <option value="gelu">GELU — x·Φ(x)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="actX">Evaluar en \(x=\) <output id="v_actX">0.0</output></label>
+                        <input type="range" id="actX" min="-5" max="5" step="0.1" value="0">
+                    </div>
+                </div>
+                <div class="chart-box" style="height:230px"><canvas id="actCanvas"></canvas></div>
+                <div class="stat-row mt-2">
+                    <div class="stat"><div class="stat-label">f(x)</div><div class="stat-value" id="actF">—</div></div>
+                    <div class="stat"><div class="stat-label">f′(x)</div><div class="stat-value" id="actD">—</div></div>
+                    <div class="stat"><div class="stat-label">máx f′</div><div class="stat-value" id="actMax">—</div>
+                        <div class="stat-hint">techo por capa</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Lo que le pasa al gradiente al cruzar \(L\) capas</div>
+                <p class="card-sub">El gradiente que llega a la primera capa es un <strong>producto</strong> de derivadas
+                    locales, una por capa (1.4.4). Aquí se multiplica \(f'(x)\) por sí misma \(L\) veces, con el
+                    \(x\) que elegiste arriba.</p>
+                <div class="controls mb-2">
+                    <div class="control-group">
+                        <label for="chainL">Profundidad \(L\) <output id="v_chainL">20</output></label>
+                        <input type="range" id="chainL" min="2" max="50" step="1" value="20">
+                    </div>
+                </div>
+                <div class="chart-box" style="height:210px"><canvas id="chainCanvas"></canvas></div>
+                <div class="readout mt-2" id="chainOut"></div>
+                <p class="fig-note">Eje vertical en escala logarítmica: cada división es un factor de 10.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Teorema de aproximación universal, ajustado de verdad</div>
+            <div class="grid-2">
+                <div>
+                    <p class="card-sub">Se ajusta por <strong>mínimos cuadrados</strong> una combinación de \(N\)
+                        activaciones ocultas con centros repartidos en el intervalo. Los pesos de salida se resuelven
+                        exactamente (ecuaciones normales), así que el error que ves es el real: baja porque el modelo
+                        realmente mejora, no porque la animación lo simule.</p>
+                    <div class="controls">
+                        <div class="control-group">
+                            <label for="uatN">Neuronas ocultas \(N\) <output id="v_uatN">4</output></label>
+                            <input type="range" id="uatN" min="1" max="30" step="1" value="4">
+                        </div>
+                        <div class="control-row">
+                            <div class="control-group">
+                                <label for="uatTarget">Función objetivo</label>
+                                <select id="uatTarget">
+                                    <option value="mix">sin(x) + ½·cos(3x)</option>
+                                    <option value="step">escalón (discontinua)</option>
+                                    <option value="abs">|x| − 1 (pico)</option>
+                                    <option value="damp">e^(−x²/4)·sin(3x)</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label for="uatAct">Activación oculta</label>
+                                <select id="uatAct">
+                                    <option value="relu">ReLU</option>
+                                    <option value="sigmoid">Sigmoide</option>
+                                    <option value="tanh">Tanh</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-row mt-2">
+                        <div class="stat"><div class="stat-label">ECM</div><div class="stat-value" id="uatMse">—</div>
+                            <div class="stat-hint">error cuadrático medio</div></div>
+                        <div class="stat"><div class="stat-label">Parámetros</div><div class="stat-value" id="uatParams">—</div>
+                            <div class="stat-hint">pesos de salida + sesgo</div></div>
+                    </div>
+                    <div class="note">
+                        <strong>Lo que el teorema NO dice (1.2.4).</strong> Que exista una red que aproxime la función
+                        no dice <em>cuántas</em> neuronas hace falta, ni que el descenso de gradiente vaya a
+                        encontrarla, ni que generalice fuera del intervalo. Prueba el escalón: hace falta muchísima
+                        más anchura para el mismo error, y aun así queda el rebote junto al salto.
+                    </div>
+                </div>
+                <div>
+                    <div class="chart-box" style="height:260px"><canvas id="uatCanvas"></canvas></div>
+                    <div class="chart-box mt-2" style="height:170px"><canvas id="uatErrCanvas"></canvas></div>
+                    <p class="fig-note">Abajo: el ECM alcanzable para cada \(N\) de 1 a 30, con la configuración actual.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 3 ══════════════ -->
+    <div id="tab3" class="tab-content">
+        <div class="grid-2 wide-left">
+            <div class="card">
+                <div class="card-title">Superficie de pérdida y trayectoria</div>
+                <canvas id="gdCanvas" data-ratio="0.72" aria-label="Mapa de la superficie de pérdida con la trayectoria del optimizador"></canvas>
+                <div id="gdBar" class="colorbar"></div>
+                <p class="fig-note"><strong>Haz clic en cualquier punto</strong> para relanzar el descenso desde ahí.
+                    El color es la pérdida real evaluada punto a punto; las curvas de nivel salen de esa misma función.</p>
+            </div>
+            <div class="card">
+                <div class="card-title">Parámetros de optimización</div>
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="gdLr">Tasa de aprendizaje \(\eta\) <output id="v_gdLr">0.10</output></label>
+                        <input type="range" id="gdLr" min="0.01" max="1.20" step="0.01" value="0.10">
+                    </div>
+                    <div class="control-group">
+                        <label for="gdSurf">Superficie</label>
+                        <select id="gdSurf">
+                            <option value="bowl">Cuenco suave — L = ½w₁² + 1½w₂²</option>
+                            <option value="ravine">Valle estrecho — L = 0.1w₁² + 3w₂²</option>
+                            <option value="banana">Valle curvo (Rosenbrock suavizado)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="gdMode">Variante</label>
+                        <select id="gdMode">
+                            <option value="gd">Batch: gradiente exacto</option>
+                            <option value="sgd">SGD: gradiente con ruido</option>
+                        </select>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm" id="gdStep">Un paso</button>
+                        <button class="btn btn-sm btn-outline" id="gdPlay">Reproducir</button>
+                        <button class="btn btn-sm btn-outline" id="gdReset">Reiniciar</button>
+                    </div>
+                </div>
+                <div class="stat-row mt-2">
+                    <div class="stat"><div class="stat-label">Paso</div><div class="stat-value" id="gdStepN">0</div></div>
+                    <div class="stat"><div class="stat-label">Pérdida</div><div class="stat-value" id="gdLoss">—</div></div>
+                    <div class="stat"><div class="stat-label">norma ∇L</div><div class="stat-value" id="gdGrad">—</div></div>
+                </div>
+                <div class="mt-2" id="gdStatus"></div>
+                <div class="chart-box mt-2" style="height:180px"><canvas id="gdLossCanvas"></canvas></div>
+                <div class="note">
+                    <strong>Sube \(\eta\) poco a poco.</strong> Hay un umbral nítido: mientras \(\eta &lt; 2/\lambda_{\max}\)
+                    la trayectoria converge; justo encima empieza a oscilar y luego diverge. En el cuenco,
+                    \(\lambda_{\max}=3\), así que el punto de quiebre está en \(\eta \approx 0{,}67\).
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 4 ══════════════ -->
+    <div id="tab4" class="tab-content">
+        <div class="card">
+            <div class="card-title">Grafo computacional y regla de la cadena</div>
+            <p class="card-sub">La red mínima del ejemplo trabajado de la clase (1.4.3): una entrada, una neurona
+                oculta con sigmoide y una salida <strong>lineal</strong> (es regresión, así que la salida no se acota).
+                Con los valores por defecto reproduce exactamente los números del apunte.</p>
+            <div class="formula-box">
+                \[ z_1 = w_1 x, \quad h = \sigma(z_1), \quad \hat y = w_2 h, \quad L = \tfrac{1}{2}(\hat y - y)^2 \]
+            </div>
+
+            <div class="controls mb-2">
+                <div class="control-row">
+                    <div class="control-group"><label for="bpX">entrada \(x\) <output id="v_bpX">1.0</output></label>
+                        <input type="range" id="bpX" min="-2" max="2" step="0.1" value="1"></div>
+                    <div class="control-group"><label for="bpY">objetivo \(y\) <output id="v_bpY">1.0</output></label>
+                        <input type="range" id="bpY" min="-1" max="2" step="0.1" value="1"></div>
+                    <div class="control-group"><label for="bpW1">\(w_1\) <output id="v_bpW1">0.50</output></label>
+                        <input type="range" id="bpW1" min="-2" max="2" step="0.01" value="0.5"></div>
+                    <div class="control-group"><label for="bpW2">\(w_2\) <output id="v_bpW2">0.80</output></label>
+                        <input type="range" id="bpW2" min="-2" max="2" step="0.01" value="0.8"></div>
+                    <div class="control-group"><label for="bpEta">\(\eta\) <output id="v_bpEta">0.10</output></label>
+                        <input type="range" id="bpEta" min="0.01" max="1" step="0.01" value="0.1"></div>
+                </div>
+            </div>
+
+            <div id="bpGraph"></div>
+
+            <div class="btn-group mt-2" style="justify-content:center">
+                <button class="btn btn-sm" id="bpFwd">▶ Forward</button>
+                <button class="btn btn-sm btn-outline" id="bpBwd">◀ Backward (regla de la cadena)</button>
+                <button class="btn btn-sm" id="bpApply">Aplicar actualización \(w \leftarrow w - \eta\,\partial L/\partial w\)</button>
+                <button class="btn btn-sm btn-outline" id="bpRestore">Volver al ejemplo del apunte</button>
+            </div>
+
+            <div class="grid-2 mt-3">
+                <div>
+                    <div class="readout" id="bpSteps"></div>
+                </div>
+                <div>
+                    <div class="chart-box" style="height:210px"><canvas id="bpLossCanvas"></canvas></div>
+                    <p class="fig-note">Pérdida tras cada actualización aplicada. El apunte llega a
+                        <span class="mono">0.126 → 0.116</span> en el primer paso: compruébalo.</p>
+                    <div class="note" id="bpNote"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 5 ══════════════ -->
+    <div id="tab5" class="tab-content">
+        <div id="quizBox"></div>
+        <div class="card">
+            <div class="card-title">Para seguir jugando</div>
+            <ul class="small text-sub" style="padding-left:1.2rem; display:flex; flex-direction:column; gap:0.4rem">
+                <li>En la pestaña 1, entrena XOR con el perceptrón y mira la exactitud quedarse pegada en 75 %. Luego cambia a MLP y vuelve a entrenar.</li>
+                <li>En la 2, pon la sigmoide en \(x=3\) y sube \(L\): el gradiente cae bajo \(10^{-9}\) antes de la capa 20. Repítelo con ReLU.</li>
+                <li>En la 3, elige el valle estrecho y busca la \(\eta\) más grande que todavía converge. Ese zigzag es el problema que resuelve <em>momentum</em> en la Clase 2.</li>
+                <li>En la 4, pon \(w_1=3\): la sigmoide se satura, \(\sigma'\) se desploma y el gradiente de \(w_1\) casi desaparece aunque la pérdida sea grande.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<footer class="lab-footer"></footer>
+
+<script>
+(function () {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const fmt = Lab.fmt;
+
+/* ═══════════════ TAB 1 · Perceptrón & XOR ═══════════════ */
+const DATASETS = {
+    AND:  [[0,0,0],[1,0,0],[0,1,0],[1,1,1]],
+    OR:   [[0,0,0],[1,0,1],[0,1,1],[1,1,1]],
+    NAND: [[0,0,1],[1,0,1],[0,1,1],[1,1,0]],
+    XOR:  [[0,0,0],[1,0,1],[0,1,1],[1,1,0]]
+};
+const pc = { ds: 'AND', mlp: false, epoch: 0, timer: null,
+             // MLP: 2 ocultas sigmoides + 1 salida sigmoide
+             W1: [[1.2,-0.7],[ -1.1, 0.9]], b1: [0.3,-0.2], W2: [1.4,-1.3], b2: 0.1 };
+
+function pcParams() {
+    return { w1: +$('pcW1').value, w2: +$('pcW2').value, b: +$('pcB').value };
+}
+
+/** Salida del modelo activo en (x1,x2), en [0,1]. */
+function pcForward(x1, x2) {
+    if (!pc.mlp) {
+        const p = pcParams();
+        return (p.w1 * x1 + p.w2 * x2 + p.b >= 0) ? 1 : 0;
+    }
+    const h = [0, 1].map(j => Lab.sigmoid(pc.W1[j][0] * x1 + pc.W1[j][1] * x2 + pc.b1[j]));
+    return Lab.sigmoid(pc.W2[0] * h[0] + pc.W2[1] * h[1] + pc.b2);
+}
+const pcPredict = (x1, x2) => pcForward(x1, x2) >= 0.5 ? 1 : 0;
+
+function pcDraw() {
+    const c = Lab.fitCanvas('pcCanvas', pcDraw);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    const pad = 34;
+    const X = (v) => pad + (v + 0.4) / 1.8 * (W - 2 * pad);
+    const Y = (v) => H - pad - (v + 0.4) / 1.8 * (H - 2 * pad);
+
+    ctx.clearRect(0, 0, W, H);
+    // Regiones de decisión, evaluando el modelo en una malla
+    const step = 5;
+    for (let px = pad; px < W - pad; px += step) {
+        for (let py = pad; py < H - pad; py += step) {
+            const x1 = (px - pad) / (W - 2 * pad) * 1.8 - 0.4;
+            const x2 = (H - pad - py) / (H - 2 * pad) * 1.8 - 0.4;
+            const out = pcForward(x1, x2);
+            ctx.fillStyle = out >= 0.5
+                ? `rgba(57,135,229,${0.14 + 0.3 * Math.min(1, (out - 0.5) * 2)})`
+                : `rgba(217,89,38,${0.14 + 0.3 * Math.min(1, (0.5 - out) * 2)})`;
+            ctx.fillRect(px, py, step, step);
+        }
+    }
+
+    // Ejes
+    ctx.strokeStyle = 'rgba(148,163,184,0.35)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, Y(0)); ctx.lineTo(W - pad, Y(0));
+    ctx.moveTo(X(0), pad); ctx.lineTo(X(0), H - pad); ctx.stroke();
+    ctx.fillStyle = '#64748b'; ctx.font = '11px Inter'; ctx.textAlign = 'center';
+    ctx.fillText('x₁', W - pad + 14, Y(0) + 4);
+    ctx.fillText('x₂', X(0) - 2, pad - 10);
+
+    // Fronteras
+    const drawLine = (a, b, cst, color, dash) => {
+        if (Math.abs(b) < 1e-6 && Math.abs(a) < 1e-6) return;
+        ctx.strokeStyle = color; ctx.lineWidth = dash ? 2 : 3; ctx.setLineDash(dash || []);
+        ctx.beginPath();
+        if (Math.abs(b) > 1e-6) {
+            const y0 = (-a * (-0.4) - cst) / b, y1 = (-a * 1.4 - cst) / b;
+            ctx.moveTo(X(-0.4), Y(y0)); ctx.lineTo(X(1.4), Y(y1));
+        } else {
+            const xv = -cst / a;
+            ctx.moveTo(X(xv), Y(-0.4)); ctx.lineTo(X(xv), Y(1.4));
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+    };
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(pad, pad, W - 2 * pad, H - 2 * pad); ctx.clip();
+    if (!pc.mlp) {
+        const p = pcParams();
+        drawLine(p.w1, p.w2, p.b, '#f8fafc');
+    } else {
+        drawLine(pc.W1[0][0], pc.W1[0][1], pc.b1[0], '#9085e9', [6, 4]);
+        drawLine(pc.W1[1][0], pc.W1[1][1], pc.b1[1], '#9085e9', [2, 4]);
+    }
+    ctx.restore();
+
+    // Puntos
+    DATASETS[pc.ds].forEach(([x1, x2, t]) => {
+        const ok = pcPredict(x1, x2) === t;
+        const cx = X(x1), cy = Y(x2);
+        ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+        ctx.fillStyle = t === 1 ? '#3987e5' : '#d95926'; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = ok ? '#f8fafc' : '#e34948'; ctx.stroke();
+        if (!ok) { ctx.beginPath(); ctx.arc(cx, cy, 16, 0, Math.PI * 2); ctx.strokeStyle = '#e34948'; ctx.lineWidth = 2; ctx.stroke(); }
+        ctx.fillStyle = '#f8fafc'; ctx.font = '600 11px Fira Code'; ctx.textAlign = 'left';
+        ctx.fillText(`(${x1},${x2})→${t}`, cx + 16, cy + 4);
+    });
+}
+
+function pcUpdate() {
+    const p = pcParams();
+    $('v_pcW1').textContent = fmt(p.w1, 1);
+    $('v_pcW2').textContent = fmt(p.w2, 1);
+    $('v_pcB').textContent = fmt(p.b, 1);
+    $('pcModeTag').textContent = pc.mlp ? 'MLP · 2 ocultas' : 'perceptrón';
+    $('pcPerceptronCtl').style.display = pc.mlp ? 'none' : 'block';
+    $('pcRule').textContent = pc.mlp ? 'backprop, η=0.5' : 'regla del perceptrón';
+
+    const data = DATASETS[pc.ds];
+    let hits = 0;
+    const rows = data.map(([x1, x2, t]) => {
+        const raw = pcForward(x1, x2), pred = raw >= 0.5 ? 1 : 0, ok = pred === t;
+        if (ok) hits++;
+        return `(${x1}, ${x2})  →  salida ${pc.mlp ? fmt(raw, 3) : raw}  ⇒  clase ${pred}   objetivo ${t}   ${ok ? '<span style="color:var(--ok)">✓</span>' : '<span style="color:var(--bad)">✗</span>'}`;
+    });
+    $('pcTable').innerHTML = rows.join('<br>');
+    const acc = hits / data.length * 100;
+    $('pcAcc').textContent = fmt(acc, 0) + ' %';
+    $('pcAcc').style.color = acc === 100 ? 'var(--ok)' : (acc >= 75 ? 'var(--warn)' : 'var(--bad)');
+    $('pcEpoch').textContent = pc.epoch;
+
+    const note = $('pcNote');
+    if (!pc.mlp && pc.ds === 'XOR') {
+        note.className = 'note warn';
+        note.innerHTML = '<strong>XOR no es linealmente separable.</strong> Ninguna recta deja los dos puntos azules a un lado y los dos naranjas al otro, así que la regla del perceptrón nunca converge: la exactitud oscila y se atasca en 75 %. Cambia a MLP y vuelve a entrenar — dos rectas sí bastan.';
+    } else if (pc.mlp) {
+        note.className = 'note';
+        note.innerHTML = '<strong>Dos rectas, una región.</strong> Las dos líneas violetas son las fronteras de las neuronas ocultas. La capa de salida las <em>combina</em>: puede quedarse con la franja entre ambas, que es justo lo que XOR necesita. Entrena con backpropagation real (η = 0.5) sobre los cuatro puntos.';
+    } else {
+        note.className = 'note';
+        note.innerHTML = '<strong>Un perceptrón es una recta.</strong> Mueve \\(w_1\\) y \\(w_2\\) para girarla y \\(b\\) para desplazarla: el vector \\((w_1,w_2)\\) es perpendicular a la frontera y apunta al lado que se clasifica como 1.';
+        Lab.renderMath(note);
+    }
+    pcDraw();
+}
+
+function pcTrainStep() {
+    const data = DATASETS[pc.ds];
+    if (!pc.mlp) {
+        // Regla del perceptrón: w ← w + η(t − ŷ)x
+        const eta = 0.15;
+        let p = pcParams(), changed = 0;
+        data.forEach(([x1, x2, t]) => {
+            const pred = (p.w1 * x1 + p.w2 * x2 + p.b >= 0) ? 1 : 0;
+            const err = t - pred;
+            if (err !== 0) { changed++; p.w1 += eta * err * x1; p.w2 += eta * err * x2; p.b += eta * err; }
+        });
+        $('pcW1').value = Lab.clamp(p.w1, -5, 5);
+        $('pcW2').value = Lab.clamp(p.w2, -5, 5);
+        $('pcB').value = Lab.clamp(p.b, -5, 5);
+        pc.epoch++;
+        pcUpdate();
+        if (changed === 0) pcStopTrain('converged');
+    } else {
+        // Backpropagation real sobre las 4 muestras (entropía cruzada binaria)
+        const eta = 0.5;
+        for (let rep = 0; rep < 25; rep++) {
+            const gW1 = [[0,0],[0,0]], gb1 = [0,0], gW2 = [0,0]; let gb2 = 0;
+            data.forEach(([x1, x2, t]) => {
+                const z1 = [0,1].map(j => pc.W1[j][0]*x1 + pc.W1[j][1]*x2 + pc.b1[j]);
+                const h = z1.map(Lab.sigmoid);
+                const out = Lab.sigmoid(pc.W2[0]*h[0] + pc.W2[1]*h[1] + pc.b2);
+                const dz2 = out - t;               // derivada de BCE + sigmoide
+                gW2[0] += dz2*h[0]; gW2[1] += dz2*h[1]; gb2 += dz2;
+                [0,1].forEach(j => {
+                    const dh = dz2 * pc.W2[j];
+                    const dz = dh * h[j] * (1 - h[j]);
+                    gW1[j][0] += dz*x1; gW1[j][1] += dz*x2; gb1[j] += dz;
+                });
+            });
+            const n = data.length;
+            [0,1].forEach(j => {
+                pc.W1[j][0] -= eta*gW1[j][0]/n; pc.W1[j][1] -= eta*gW1[j][1]/n;
+                pc.b1[j] -= eta*gb1[j]/n; pc.W2[j] -= eta*gW2[j]/n;
+            });
+            pc.b2 -= eta*gb2/n;
+        }
+        pc.epoch += 25;
+        pcUpdate();
+        const solved = data.every(([x1, x2, t]) => pcPredict(x1, x2) === t);
+        if (solved && pc.epoch > 200) pcStopTrain('converged');
+        if (pc.epoch >= 4000) pcStopTrain('limit');
+    }
+    if (!pc.mlp && pc.epoch >= 60) pcStopTrain('limit');
+}
+
+function pcStopTrain(reason) {
+    if (pc.timer) { clearInterval(pc.timer); pc.timer = null; }
+    $('pcTrain').textContent = 'Entrenar';
+    if (reason === 'converged') {
+        $('pcNote').className = 'note';
+        $('pcNote').innerHTML = '<strong>Convergió.</strong> Ya no queda ningún punto mal clasificado, así que la actualización se anula sola: no hay error del que aprender.';
+    } else if (reason === 'limit' && !pc.mlp && pc.ds === 'XOR') {
+        $('pcNote').className = 'note warn';
+        $('pcNote').innerHTML = '<strong>60 épocas y sigue sin converger.</strong> No es mala suerte ni pocas iteraciones: es un teorema. Minsky y Papert (1969) demostraron que ninguna recta separa XOR, y ese resultado congeló el campo durante quince años.';
+    }
+}
+
+function pcInitTab() {
+    ['pcW1','pcW2','pcB'].forEach(id => $(id).addEventListener('input', pcUpdate));
+    $('pcDataset').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-ds]'); if (!b) return;
+        pc.ds = b.dataset.ds; pc.epoch = 0; pcStopTrain();
+        $('pcDataset').querySelectorAll('button').forEach(x =>
+            x.className = 'btn btn-sm' + (x === b ? '' : ' btn-outline'));
+        pcUpdate();
+    });
+    const setArch = (isMlp) => {
+        pc.mlp = isMlp; pc.epoch = 0; pcStopTrain();
+        $('pcBtnP').className = 'btn btn-sm' + (isMlp ? ' btn-outline' : '');
+        $('pcBtnM').className = 'btn btn-sm' + (isMlp ? '' : ' btn-outline');
+        pcUpdate();
+    };
+    $('pcBtnP').addEventListener('click', () => setArch(false));
+    $('pcBtnM').addEventListener('click', () => setArch(true));
+    $('pcTrain').addEventListener('click', () => {
+        if (pc.timer) { pcStopTrain(); return; }
+        $('pcTrain').textContent = 'Pausar';
+        pc.timer = setInterval(pcTrainStep, 130);
+    });
+    $('pcReset').addEventListener('click', () => {
+        pcStopTrain(); pc.epoch = 0;
+        $('pcW1').value = 1; $('pcW2').value = 1; $('pcB').value = -1.5;
+        const r = Lab.rng(7);
+        pc.W1 = [[Lab.gauss(r), Lab.gauss(r)], [Lab.gauss(r), Lab.gauss(r)]];
+        pc.b1 = [Lab.gauss(r) * 0.3, Lab.gauss(r) * 0.3];
+        pc.W2 = [Lab.gauss(r), Lab.gauss(r)]; pc.b2 = 0;
+        pcUpdate();
+    });
+    pcUpdate();
+}
+
+/* ═══════════════ TAB 2 · Activaciones, cadena y UAT ═══════════════ */
+const NORMAL_PDF = (z) => Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
+const NORMAL_CDF = (z) => 0.5 * (1 + erf(z / Math.SQRT2));
+function erf(x) {                       // Abramowitz & Stegun 7.1.26
+    const s = Math.sign(x); x = Math.abs(x);
+    const t = 1 / (1 + 0.3275911 * x);
+    const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return s * y;
+}
+const ACT = {
+    sigmoid: { f: Lab.sigmoid, d: (x) => { const s = Lab.sigmoid(x); return s * (1 - s); }, max: 0.25, name: 'Sigmoide' },
+    tanh:    { f: Math.tanh,   d: (x) => 1 - Math.tanh(x) ** 2, max: 1, name: 'Tanh' },
+    relu:    { f: (x) => Math.max(0, x), d: (x) => x > 0 ? 1 : 0, max: 1, name: 'ReLU' },
+    leaky:   { f: (x) => Math.max(0.1 * x, x), d: (x) => x > 0 ? 1 : 0.1, max: 1, name: 'Leaky ReLU' },
+    // GELU exacta: f = x·Φ(x); f' = Φ(x) + x·φ(x)
+    gelu:    { f: (x) => x * NORMAL_CDF(x), d: (x) => NORMAL_CDF(x) + x * NORMAL_PDF(x), max: 1.084, name: 'GELU' }
+};
+
+function actUpdate() {
+    const key = $('actSel').value, a = ACT[key];
+    const x0 = +$('actX').value;
+    $('v_actX').textContent = fmt(x0, 1);
+
+    const xs = [], fs = [], ds = [];
+    for (let x = -5; x <= 5.0001; x += 0.1) { xs.push(x.toFixed(1)); fs.push(a.f(x)); ds.push(a.d(x)); }
+
+    Lab.chart('actCanvas', {
+        type: 'line',
+        data: {
+            labels: xs,
+            datasets: [
+                { label: 'f(x)', data: fs, borderColor: 'var(--series-1)' },
+                { label: "f′(x)", data: ds, borderColor: 'var(--series-2)', borderDash: [5, 4] }
+            ]
+        },
+        options: {
+            scales: { x: { ticks: { callback: (v, i) => (i % 10 === 0 ? xs[i] : '') } } },
+            plugins: { tooltip: { callbacks: { title: (it) => 'x = ' + it[0].label } } }
+        }
+    });
+
+    $('actF').textContent = fmt(a.f(x0), 3);
+    $('actD').textContent = fmt(a.d(x0), 3);
+    $('actMax').textContent = fmt(a.max, key === 'gelu' ? 3 : 2);
+    $('actD').style.color = a.d(x0) < 0.05 ? 'var(--bad)' : (a.d(x0) < 0.3 ? 'var(--warn)' : 'var(--ok)');
+    chainUpdate();
+}
+
+function chainUpdate() {
+    const a = ACT[$('actSel').value];
+    const x0 = +$('actX').value;
+    const L = +$('chainL').value;
+    $('v_chainL').textContent = L;
+
+    const g = a.d(x0);
+    const labels = [], vals = [], ref = [];
+    for (let l = 1; l <= L; l++) { labels.push(String(l)); vals.push(Math.pow(g, l)); ref.push(1); }
+
+    Lab.chart('chainCanvas', {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: `(f′)^L con f′ = ${fmt(g, 3)}`, data: vals.map(v => Math.max(v, 1e-18)), borderColor: 'var(--series-1)' },
+                { label: 'sin atenuación (=1)', data: ref, borderColor: 'var(--series-3)', borderDash: [4, 4] }
+            ]
+        },
+        options: {
+            scales: {
+                y: { type: 'logarithmic', min: 1e-18, max: 10, title: { display: true, text: 'factor del gradiente', color: '#94a3b8' } },
+                x: { title: { display: true, text: 'capas atravesadas', color: '#94a3b8' },
+                     ticks: { callback: (v, i) => ((i + 1) % Math.ceil(L / 8) === 0 ? labels[i] : '') } }
+            }
+        }
+    });
+
+    const final = Math.pow(g, L);
+    let verdict, cls;
+    if (g === 0) { verdict = 'la neurona está <strong>muerta</strong>: derivada exactamente 0, no pasa nada de gradiente'; cls = 'bad'; }
+    else if (final < 1e-6) { verdict = 'el gradiente se ha <strong>desvanecido</strong>'; cls = 'bad'; }
+    else if (final < 0.05) { verdict = 'el gradiente llega muy debilitado'; cls = 'warn'; }
+    else { verdict = 'el gradiente llega prácticamente intacto'; cls = 'ok'; }
+
+    $('chainOut').innerHTML =
+        `f′(${fmt(x0, 1)}) = <strong>${fmt(g, 4)}</strong> &nbsp;→&nbsp; tras ${L} capas: ` +
+        `<strong>${Lab.sci(final, 2)}</strong><br>` +
+        `<span class="pill ${cls}">${verdict}</span>`;
+}
+
+/* --- Aproximación universal por mínimos cuadrados --- */
+const TARGETS = {
+    mix:  { f: (x) => Math.sin(x) + 0.5 * Math.cos(3 * x), label: 'sin(x) + ½cos(3x)' },
+    step: { f: (x) => x < 0 ? -0.8 : 0.8, label: 'escalón' },
+    abs:  { f: (x) => Math.abs(x) - 1, label: '|x| − 1' },
+    damp: { f: (x) => Math.exp(-x * x / 4) * Math.sin(3 * x), label: 'e^(−x²/4)·sin(3x)' }
+};
+
+/** Ajusta a·φ(x) + b por mínimos cuadrados con N unidades ocultas fijas. Devuelve {yhat, mse}. */
+function uatFit(N, actKey, targetKey, xs) {
+    const tgt = TARGETS[targetKey].f;
+    const act = ACT[actKey].f;
+    const lo = -Math.PI, hi = Math.PI;
+    // Bases: centros equiespaciados, pendiente proporcional a N (más unidades ⇒ transiciones más finas)
+    const centers = [], slope = actKey === 'relu' ? 1 : Math.max(2, N * 0.9);
+    for (let j = 0; j < N; j++) centers.push(lo + (hi - lo) * (N === 1 ? 0.5 : j / (N - 1)));
+
+    const basis = (x) => {
+        const row = centers.map(c => act(slope * (x - c)));
+        row.push(1);                       // sesgo de salida
+        return row;
+    };
+
+    const P = N + 1;
+    const A = Lab.M.zeros(P, P), rhs = new Array(P).fill(0);
+    xs.forEach(x => {
+        const phi = basis(x), t = tgt(x);
+        for (let i = 0; i < P; i++) {
+            rhs[i] += phi[i] * t;
+            for (let j = 0; j < P; j++) A[i][j] += phi[i] * phi[j];
+        }
+    });
+    for (let i = 0; i < P; i++) A[i][i] += 1e-7;   // regularización mínima: evita matrices singulares
+    const w = Lab.M.solve(A, rhs);
+
+    const yhat = xs.map(x => Lab.M.dot(basis(x), w));
+    const mse = xs.reduce((s, x, i) => s + (tgt(x) - yhat[i]) ** 2, 0) / xs.length;
+    return { yhat, mse };
+}
+
+function uatUpdate() {
+    const N = +$('uatN').value, actKey = $('uatAct').value, tKey = $('uatTarget').value;
+    $('v_uatN').textContent = N;
+
+    const xs = [];
+    for (let x = -Math.PI; x <= Math.PI + 1e-9; x += 0.05) xs.push(x);
+    const target = xs.map(TARGETS[tKey].f);
+    const { yhat, mse } = uatFit(N, actKey, tKey, xs);
+
+    $('uatMse').textContent = mse < 1e-4 ? Lab.sci(mse, 1) : fmt(mse, 4);
+    $('uatMse').style.color = mse < 0.01 ? 'var(--ok)' : (mse < 0.1 ? 'var(--warn)' : 'var(--bad)');
+    $('uatParams').textContent = (N + 1);
+
+    Lab.chart('uatCanvas', {
+        type: 'line',
+        data: {
+            labels: xs.map(x => x.toFixed(2)),
+            datasets: [
+                { label: 'objetivo', data: target, borderColor: 'var(--series-3)', borderWidth: 3 },
+                { label: `red con N = ${N}`, data: yhat, borderColor: 'var(--series-1)', borderDash: [6, 3] }
+            ]
+        },
+        options: { scales: { x: { ticks: { callback: (v, i) => (i % 25 === 0 ? xs[i].toFixed(1) : '') } } } }
+    });
+
+    // Curva de error alcanzable para cada N
+    const ns = [], mses = [];
+    for (let n = 1; n <= 30; n++) { ns.push(String(n)); mses.push(Math.max(uatFit(n, actKey, tKey, xs).mse, 1e-12)); }
+    Lab.chart('uatErrCanvas', {
+        type: 'line',
+        data: { labels: ns, datasets: [{ label: 'ECM', data: mses, borderColor: 'var(--series-2)' }] },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { type: 'logarithmic', title: { display: true, text: 'ECM (log)', color: '#94a3b8' } },
+                x: { title: { display: true, text: 'neuronas ocultas N', color: '#94a3b8' },
+                     ticks: { callback: (v, i) => ((i + 1) % 5 === 0 ? ns[i] : '') } }
+            }
+        }
+    });
+}
+
+/* ═══════════════ TAB 3 · Descenso de gradiente ═══════════════ */
+const SURFACES = {
+    bowl:   { L: (a, b) => 0.5 * a * a + 1.5 * b * b, g: (a, b) => [a, 3 * b], lmax: 3, name: 'cuenco' },
+    ravine: { L: (a, b) => 0.1 * a * a + 3 * b * b,   g: (a, b) => [0.2 * a, 6 * b], lmax: 6, name: 'valle estrecho' },
+    banana: { L: (a, b) => 0.05 * (a - 1) ** 2 + 2 * (b - 0.15 * a * a) ** 2,
+              g: (a, b) => [0.1 * (a - 1) + 4 * (b - 0.15 * a * a) * (-0.3 * a), 4 * (b - 0.15 * a * a)],
+              lmax: 4, name: 'valle curvo' }
+};
+const gd = { pos: { a: -3.8, b: 3.4 }, path: [], losses: [], diverged: false, timer: null };
+
+function gdSurf() { return SURFACES[$('gdSurf').value]; }
+
+function gdReset(a, b) {
+    const s = gdSurf();
+    gd.pos = { a: a !== undefined ? a : -3.8, b: b !== undefined ? b : 3.4 };
+    gd.path = [{ ...gd.pos }];
+    gd.losses = [s.L(gd.pos.a, gd.pos.b)];
+    gd.diverged = false;
+    gdDraw(); gdReadout();
+}
+
+function gdStep() {
+    if (gd.diverged) return;
+    const s = gdSurf(), lr = +$('gdLr').value;
+    let [ga, gb] = s.g(gd.pos.a, gd.pos.b);
+    if ($('gdMode').value === 'sgd') {
+        const n = gd.path.length;
+        ga += (Math.sin(n * 12.9898) * 43758.5453 % 1 - 0.5) * 2.2;
+        gb += (Math.sin(n * 78.233) * 43758.5453 % 1 - 0.5) * 2.2;
+    }
+    gd.pos.a -= lr * ga; gd.pos.b -= lr * gb;
+    gd.path.push({ ...gd.pos });
+    const l = s.L(gd.pos.a, gd.pos.b);
+    gd.losses.push(l);
+    if (!isFinite(l) || Math.abs(gd.pos.a) > 40 || Math.abs(gd.pos.b) > 40) {
+        gd.diverged = true; gdStopPlay();
+    }
+    gdDraw(); gdReadout();
+}
+
+function gdDraw() {
+    const c = Lab.fitCanvas('gdCanvas', gdDraw);
+    if (!c) return;
+    const { ctx, W, H } = c;
+    const s = gdSurf(), R = 5;
+    const X = (v) => W / 2 + v / R * (W / 2 - 12);
+    const Y = (v) => H / 2 - v / R * (H / 2 - 12);
+    const inv = (px, py) => [(px - W / 2) / (W / 2 - 12) * R, -(py - H / 2) / (H / 2 - 12) * R];
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Superficie: color = pérdida real, evaluada celda a celda
+    let lmaxV = 0;
+    const cell = 4, cols = Math.ceil(W / cell), rows = Math.ceil(H / cell);
+    const vals = [];
+    for (let i = 0; i < cols; i++) {
+        vals[i] = [];
+        for (let j = 0; j < rows; j++) {
+            const [a, b] = inv(i * cell + cell / 2, j * cell + cell / 2);
+            const v = s.L(a, b);
+            vals[i][j] = v; if (isFinite(v)) lmaxV = Math.max(lmaxV, v);
+        }
+    }
+    // Claro = pérdida baja (cerca del mínimo), oscuro = pérdida alta.
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+        ctx.fillStyle = Lab.seqColor(Math.sqrt(Math.min(1, vals[i][j] / lmaxV)));
+        ctx.fillRect(i * cell, j * cell, cell, cell);
+    }
+
+    // Curvas de nivel de la misma función
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(11,18,32,0.35)';
+    [0.02, 0.06, 0.14, 0.28, 0.48, 0.72].forEach(frac => {
+        const lvl = frac * lmaxV;
+        for (let i = 0; i < cols - 1; i++) for (let j = 0; j < rows - 1; j++) {
+            const v = vals[i][j];
+            if ((v - lvl) * (vals[i + 1][j] - lvl) < 0 || (v - lvl) * (vals[i][j + 1] - lvl) < 0) {
+                ctx.fillStyle = 'rgba(11,18,32,0.45)';
+                ctx.fillRect(i * cell, j * cell, 2, 2);
+            }
+        }
+    });
+
+    // Ejes y mínimo
+    ctx.strokeStyle = 'rgba(11,18,32,0.25)';
+    ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), H); ctx.stroke();
+
+    // Trayectoria
+    ctx.strokeStyle = '#e34948'; ctx.lineWidth = 2.5; ctx.beginPath();
+    gd.path.forEach((p, i) => {
+        const px = X(p.a), py = Y(p.b);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+    gd.path.forEach((p, i) => {
+        const last = i === gd.path.length - 1;
+        ctx.beginPath(); ctx.arc(X(p.a), Y(p.b), last ? 7 : 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = last ? '#f8fafc' : '#e34948'; ctx.fill();
+        if (last) { ctx.lineWidth = 2.5; ctx.strokeStyle = '#e34948'; ctx.stroke(); }
+    });
+
+    ctx.fillStyle = '#0b1220'; ctx.font = '600 11px Fira Code'; ctx.textAlign = 'left';
+    ctx.fillText('w₁ →', W - 46, Y(0) - 8);
+    ctx.fillText('w₂ ↑', X(0) + 8, 16);
+
+    Lab.colorbar('gdBar', 0, lmaxV, 'seq');
+    $('gdBar').insertAdjacentHTML('afterbegin', '<span style="color:var(--text-sub)">pérdida&nbsp;</span>');
+}
+
+function gdReadout() {
+    const s = gdSurf();
+    const [ga, gb] = s.g(gd.pos.a, gd.pos.b);
+    const gn = Math.hypot(ga, gb), l = s.L(gd.pos.a, gd.pos.b);
+    $('gdStepN').textContent = gd.path.length - 1;
+    $('gdLoss').textContent = isFinite(l) ? (l > 1e5 ? Lab.sci(l, 1) : fmt(l, 3)) : '∞';
+    $('gdGrad').textContent = isFinite(gn) ? (gn > 1e5 ? Lab.sci(gn, 1) : fmt(gn, 3)) : '∞';
+    $('v_gdLr').textContent = fmt(+$('gdLr').value, 2);
+
+    const lr = +$('gdLr').value, crit = 2 / s.lmax;
+    const st = $('gdStatus');
+    if (gd.diverged) {
+        st.innerHTML = `<span class="pill bad">divergió</span> <span class="small text-sub">La pérdida creció sin límite: cada paso se pasa del mínimo y rebota más lejos que antes.</span>`;
+    } else if (lr >= crit) {
+        st.innerHTML = `<span class="pill bad">η ≥ 2/λ<sub>máx</sub> = ${fmt(crit, 2)}</span> <span class="small text-sub">Por encima de este umbral el método no puede converger, por muchos pasos que le des.</span>`;
+    } else if (lr > crit * 0.75) {
+        st.innerHTML = `<span class="pill warn">al filo</span> <span class="small text-sub">Cerca del límite ${fmt(crit, 2)}: converge, pero zigzagueando.</span>`;
+    } else if (l < 1e-4) {
+        st.innerHTML = `<span class="pill ok">en el mínimo</span> <span class="small text-sub">El gradiente se anuló: el punto ya no se mueve.</span>`;
+    } else {
+        st.innerHTML = `<span class="pill info">convergiendo</span> <span class="small text-sub">Umbral teórico de esta superficie: η &lt; ${fmt(crit, 2)}.</span>`;
+    }
+
+    Lab.chart('gdLossCanvas', {
+        type: 'line',
+        data: {
+            labels: gd.losses.map((_, i) => String(i)),
+            datasets: [{ label: 'pérdida', data: gd.losses.map(v => Math.max(isFinite(v) ? v : 1e12, 1e-12)), borderColor: 'var(--series-2)', pointRadius: 3 }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { type: 'logarithmic', title: { display: true, text: 'pérdida (log)', color: '#94a3b8' } },
+                x: { title: { display: true, text: 'paso', color: '#94a3b8' },
+                     ticks: { callback: (v, i) => (i % 5 === 0 ? String(i) : '') } }
+            }
+        }
+    });
+}
+
+function gdStopPlay() {
+    if (gd.timer) { clearInterval(gd.timer); gd.timer = null; }
+    $('gdPlay').textContent = 'Reproducir';
+}
+
+function gdInitTab() {
+    $('gdLr').addEventListener('input', gdReadout);
+    $('gdSurf').addEventListener('change', () => { gdStopPlay(); gdReset(); });
+    $('gdMode').addEventListener('change', () => { gdStopPlay(); gdReset(); });
+    $('gdStep').addEventListener('click', gdStep);
+    $('gdReset').addEventListener('click', () => { gdStopPlay(); gdReset(); });
+    $('gdPlay').addEventListener('click', () => {
+        if (gd.timer) { gdStopPlay(); return; }
+        $('gdPlay').textContent = 'Pausar';
+        gd.timer = setInterval(() => { gdStep(); if (gd.path.length > 90) gdStopPlay(); }, 110);
+    });
+    $('gdCanvas').addEventListener('click', (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const R = 5;
+        const a = (e.clientX - r.left - r.width / 2) / (r.width / 2 - 12) * R;
+        const b = -(e.clientY - r.top - r.height / 2) / (r.height / 2 - 12) * R;
+        gdStopPlay(); gdReset(a, b);
+    });
+    gdReset();
+}
+
+/* ═══════════════ TAB 4 · Backpropagation ═══════════════ */
+const bp = { history: [], phase: 'idle' };
+
+function bpVals() {
+    const x = +$('bpX').value, y = +$('bpY').value, w1 = +$('bpW1').value, w2 = +$('bpW2').value;
+    const z1 = w1 * x;
+    const h = Lab.sigmoid(z1);
+    const yh = w2 * h;
+    const L = 0.5 * (yh - y) ** 2;
+    const dL_dyh = yh - y;
+    const dL_dw2 = dL_dyh * h;
+    const dL_dh = dL_dyh * w2;
+    const dh_dz1 = h * (1 - h);
+    const dL_dz1 = dL_dh * dh_dz1;
+    const dL_dw1 = dL_dz1 * x;
+    return { x, y, w1, w2, z1, h, yh, L, dL_dyh, dL_dw2, dL_dh, dh_dz1, dL_dz1, dL_dw1 };
+}
+
+const BP_NODES = [
+    { id: 'x',  label: 'entrada' },
+    { id: 'z1', label: 'z₁ = w₁x' },
+    { id: 'h',  label: 'h = σ(z₁)' },
+    { id: 'yh', label: 'ŷ = w₂h' },
+    { id: 'L',  label: 'L = ½(ŷ−y)²' }
+];
+
+function bpRenderGraph(active, dir) {
+    const v = bpVals();
+    const val = { x: fmt(v.x, 2), z1: fmt(v.z1, 3), h: fmt(v.h, 3), yh: fmt(v.yh, 3), L: fmt(v.L, 4) };
+    const grad = { x: null, z1: fmt(v.dL_dz1, 4), h: fmt(v.dL_dh, 4), yh: fmt(v.dL_dyh, 4), L: '1' };
+
+    $('bpGraph').innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:0.35rem;flex-wrap:wrap;padding:1rem 0">` +
+        BP_NODES.map((n, i) => {
+            const on = active === n.id;
+            const ring = on ? (dir === 'bwd' ? 'var(--bad)' : 'var(--accent-cyan)') : 'var(--border)';
+            const glow = on ? `box-shadow:0 0 18px ${dir === 'bwd' ? 'rgba(227,73,72,.5)' : 'rgba(6,182,212,.5)'};` : '';
+            return (i ? `<span style="color:var(--text-muted);font-size:1.3rem">${dir === 'bwd' ? '←' : '→'}</span>` : '') +
+            `<div style="min-width:112px;padding:0.7rem 0.5rem;border-radius:12px;background:var(--bg-inset);
+                        border:2px solid ${ring};${glow}text-align:center;transition:all .25s">
+                <div style="font-size:0.72rem;color:var(--text-sub)">${n.label}</div>
+                <div class="mono" style="font-size:0.95rem;font-weight:700;color:var(--series-1)">${val[n.id]}</div>
+                ${grad[n.id] !== null ? `<div class="mono" style="font-size:0.72rem;color:var(--div-pos)">∂L/∂• = ${grad[n.id]}</div>` : ''}
+            </div>`;
+        }).join('') + `</div>
+        <div class="small text-sub" style="text-align:center">
+            Arriba en azul, el <strong>valor</strong> que viaja hacia adelante. Abajo en rojo, el
+            <strong>gradiente</strong> que viaja hacia atrás.
+        </div>`;
+}
+
+function bpUpdate() {
+    const v = bpVals();
+    $('v_bpX').textContent = fmt(v.x, 1);
+    $('v_bpY').textContent = fmt(v.y, 1);
+    $('v_bpW1').textContent = fmt(v.w1, 2);
+    $('v_bpW2').textContent = fmt(v.w2, 2);
+    $('v_bpEta').textContent = fmt(+$('bpEta').value, 2);
+    bpRenderGraph(null, 'fwd');
+
+    const note = $('bpNote');
+    if (v.dh_dz1 < 0.05) {
+        note.className = 'note warn';
+        note.innerHTML = `<strong>Sigmoide saturada.</strong> σ′(z₁) = ${fmt(v.dh_dz1, 4)}: la neurona está en la meseta de la curva, y ese factor multiplica todo lo que llega desde atrás. Aunque la pérdida valga ${fmt(v.L, 3)}, a \\(w_1\\) le llega un gradiente de apenas ${Lab.sci(v.dL_dw1, 2)}. Esta es la semilla del gradiente que se desvanece.`;
+    } else {
+        note.className = 'note';
+        note.innerHTML = `<strong>El techo de la sigmoide.</strong> σ′ nunca supera 0.25, y aquí vale ${fmt(v.dh_dz1, 3)}. Cada capa sigmoide recorta el gradiente al menos a la cuarta parte: encadenadas, lo apagan. Por eso ReLU (que deja pasar ×1) la desplazó en las capas ocultas.`;
+    }
+    Lab.renderMath(note);
+}
+
+function bpShowForward() {
+    const v = bpVals();
+    bp.phase = 'fwd';
+    $('bpSteps').innerHTML = `
+        <strong style="color:var(--accent-cyan)">PASO FORWARD</strong><br>
+        1. z₁ = w₁·x = ${fmt(v.w1, 3)} · ${fmt(v.x, 2)} = <strong>${fmt(v.z1, 3)}</strong><br>
+        2. h = σ(z₁) = 1/(1+e^−${fmt(v.z1, 3)}) = <strong>${fmt(v.h, 3)}</strong><br>
+        3. ŷ = w₂·h = ${fmt(v.w2, 3)} · ${fmt(v.h, 3)} = <strong>${fmt(v.yh, 3)}</strong><br>
+        4. L = ½(ŷ − y)² = ½(${fmt(v.yh, 3)} − ${fmt(v.y, 2)})² = <strong>${fmt(v.L, 4)}</strong>`;
+    ['x', 'z1', 'h', 'yh', 'L'].forEach((id, i) =>
+        setTimeout(() => bpRenderGraph(id, 'fwd'), i * 280));
+}
+
+function bpShowBackward() {
+    const v = bpVals();
+    bp.phase = 'bwd';
+    $('bpSteps').innerHTML = `
+        <strong style="color:var(--div-pos)">PASO BACKWARD — regla de la cadena</strong><br>
+        1. ∂L/∂ŷ = (ŷ − y) = ${fmt(v.yh, 3)} − ${fmt(v.y, 2)} = <strong>${fmt(v.dL_dyh, 4)}</strong><br>
+        2. ∂L/∂w₂ = ∂L/∂ŷ · h = ${fmt(v.dL_dyh, 4)} · ${fmt(v.h, 3)} = <strong>${fmt(v.dL_dw2, 4)}</strong><br>
+        3. ∂L/∂h = ∂L/∂ŷ · w₂ = ${fmt(v.dL_dyh, 4)} · ${fmt(v.w2, 3)} = <strong>${fmt(v.dL_dh, 4)}</strong><br>
+        4. σ′(z₁) = h(1−h) = ${fmt(v.h, 3)}·${fmt(1 - v.h, 3)} = <strong>${fmt(v.dh_dz1, 4)}</strong><br>
+        5. ∂L/∂z₁ = ∂L/∂h · σ′(z₁) = <strong>${fmt(v.dL_dz1, 4)}</strong><br>
+        6. ∂L/∂w₁ = ∂L/∂z₁ · x = <strong>${fmt(v.dL_dw1, 4)}</strong><br>
+        <span style="color:var(--text-sub)">━━ la cadena completa ━━</span><br>
+        ∂L/∂w₁ = (ŷ−y)·w₂·σ′(z₁)·x = ${fmt(v.dL_dyh, 3)} · ${fmt(v.w2, 3)} · ${fmt(v.dh_dz1, 3)} · ${fmt(v.x, 2)} = <strong>${fmt(v.dL_dw1, 4)}</strong>`;
+    ['L', 'yh', 'h', 'z1'].forEach((id, i) =>
+        setTimeout(() => bpRenderGraph(id, 'bwd'), i * 280));
+}
+
+function bpApply() {
+    const v = bpVals(), eta = +$('bpEta').value;
+    if (!bp.history.length) bp.history.push(v.L);
+    $('bpW1').value = Lab.clamp(v.w1 - eta * v.dL_dw1, -2, 2);
+    $('bpW2').value = Lab.clamp(v.w2 - eta * v.dL_dw2, -2, 2);
+    const nv = bpVals();
+    bp.history.push(nv.L);
+    bpUpdate();
+    $('bpSteps').innerHTML = `
+        <strong style="color:var(--ok)">ACTUALIZACIÓN APLICADA (η = ${fmt(eta, 2)})</strong><br>
+        w₂ ← ${fmt(v.w2, 3)} − ${fmt(eta, 2)}·(${fmt(v.dL_dw2, 4)}) = <strong>${fmt(nv.w2, 3)}</strong><br>
+        w₁ ← ${fmt(v.w1, 3)} − ${fmt(eta, 2)}·(${fmt(v.dL_dw1, 4)}) = <strong>${fmt(nv.w1, 3)}</strong><br>
+        <span style="color:var(--text-sub)">━━ nuevo forward ━━</span><br>
+        ŷ: ${fmt(v.yh, 3)} → <strong>${fmt(nv.yh, 3)}</strong> &nbsp;(objetivo ${fmt(v.y, 2)})<br>
+        L: ${fmt(v.L, 4)} → <strong style="color:${nv.L < v.L ? 'var(--ok)' : 'var(--bad)'}">${fmt(nv.L, 4)}</strong>
+        ${nv.L < v.L ? '&nbsp;<span class="pill ok">bajó</span>' : '&nbsp;<span class="pill bad">subió: η demasiado grande</span>'}`;
+    bpChart();
+}
+
+function bpChart() {
+    Lab.chart('bpLossCanvas', {
+        type: 'line',
+        data: {
+            labels: bp.history.map((_, i) => String(i)),
+            datasets: [{ label: 'L', data: bp.history, borderColor: 'var(--series-2)', pointRadius: 4 }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { x: { title: { display: true, text: 'actualizaciones aplicadas', color: '#94a3b8' } },
+                      y: { title: { display: true, text: 'pérdida L', color: '#94a3b8' }, beginAtZero: true } }
+        }
+    });
+}
+
+function bpInitTab() {
+    ['bpX', 'bpY', 'bpW1', 'bpW2', 'bpEta'].forEach(id =>
+        $(id).addEventListener('input', () => { bpUpdate(); }));
+    $('bpFwd').addEventListener('click', bpShowForward);
+    $('bpBwd').addEventListener('click', bpShowBackward);
+    $('bpApply').addEventListener('click', bpApply);
+    $('bpRestore').addEventListener('click', () => {
+        $('bpX').value = 1; $('bpY').value = 1; $('bpW1').value = 0.5; $('bpW2').value = 0.8; $('bpEta').value = 0.1;
+        bp.history = []; bpUpdate(); bpChart();
+        $('bpSteps').innerHTML = 'Valores del ejemplo trabajado 1.4.3 restaurados. Pulsa <strong>Forward</strong> y luego <strong>Backward</strong>.';
+    });
+    bpUpdate();
+    bpChart();
+    $('bpSteps').innerHTML = 'Pulsa <strong>Forward</strong> para propagar los valores, y luego <strong>Backward</strong> para ver bajar el gradiente por la regla de la cadena.';
+}
+
+/* ═══════════════ TAB 5 · Quiz ═══════════════ */
+const QUIZ = [
+    { q: 'Un perceptrón simple se atasca en 75 % de exactitud sobre XOR. ¿Por qué?',
+      opts: ['La tasa de aprendizaje es demasiado alta',
+             'XOR no es linealmente separable: ninguna recta deja bien clasificados los 4 puntos',
+             'Faltan épocas de entrenamiento',
+             'Los pesos se inicializaron mal'],
+      answer: 1,
+      why: 'Es una imposibilidad geométrica, no un problema de optimización. El perceptrón solo puede trazar un hiperplano; XOR necesita separar dos regiones que ninguna recta aísla. Ni más épocas ni mejor inicialización lo arreglan — hace falta una capa oculta que combine dos rectas.' },
+    { q: 'Al encadenar 20 capas sigmoides, ¿cuál es la <em>cota superior</em> del factor por el que se multiplica el gradiente?',
+      opts: ['\\(20 \\times 0.25 = 5\\)', '\\(0.25^{20} \\approx 10^{-12}\\)', '\\(1\\), la sigmoide no atenúa', 'Depende solo del learning rate'],
+      answer: 1,
+      why: 'Los factores se <strong>multiplican</strong>, no se suman: el gradiente que llega a la primera capa es el producto de las derivadas locales. Como σ′ ≤ 0.25 <em>en el mejor caso</em>, 20 capas dan como mucho 0.25²⁰ ≈ 10⁻¹². En la práctica es aún peor, porque las sigmoides saturadas dan mucho menos de 0.25.' },
+    { q: 'En el cuenco \\(L = \\tfrac12 w_1^2 + \\tfrac32 w_2^2\\), el descenso de gradiente diverge en cuanto \\(\\eta \\ge 0{,}67\\). ¿De dónde sale ese número?',
+      opts: ['Del número de parámetros', 'De \\(2/\\lambda_{\\max}\\), con \\(\\lambda_{\\max}=3\\) la mayor curvatura',
+             'Es un valor empírico sin fórmula', 'De la raíz cuadrada del número de muestras'],
+      answer: 1,
+      why: 'La condición de estabilidad de una cuadrática es \\(\\eta < 2/\\lambda_{\\max}\\), donde \\(\\lambda_{\\max}\\) es el mayor autovalor del hessiano — la dirección más curva. Aquí el hessiano es diag(1, 3), así que el umbral es 2/3 ≈ 0.67. Justo encima, cada paso se pasa del mínimo <em>más</em> de lo que estaba: rebota y se aleja.' },
+    { q: 'El teorema de aproximación universal garantiza que una red de una capa oculta puede aproximar cualquier función continua. ¿Qué NO garantiza?',
+      opts: ['Que la aproximación sea buena en el intervalo compacto',
+             'Que exista tal red',
+             'Que el descenso de gradiente vaya a encontrarla, ni con cuántas neuronas',
+             'Que las activaciones sean no lineales'],
+      answer: 2,
+      why: 'Es un teorema de <em>existencia</em>: dice que la red está ahí, en algún lugar del espacio de parámetros. No dice cuántas neuronas hacen falta (para el escalón, muchísimas), ni que el entrenamiento la alcance, ni que generalice fuera del intervalo donde se ajustó. Esa brecha entre "existe" y "la encuentro" es media historia del deep learning.' },
+    { q: 'En el grafo \\(z_1 \\to h \\to \\hat y \\to L\\), pones \\(w_1 = 3\\) con \\(x=1\\). La pérdida sigue siendo alta pero \\(\\partial L/\\partial w_1\\) es minúscula. ¿Qué ocurrió?',
+      opts: ['La red ya convergió', 'La sigmoide se saturó: \\(\\sigma\'(z_1)\\) es casi 0 y anula la cadena',
+             'El gradiente de \\(w_2\\) también es 0', 'La pérdida está mal calculada'],
+      answer: 1,
+      why: 'Con z₁ = 3, σ(z₁) ≈ 0.953 y σ′ = h(1−h) ≈ 0.045. Ese factor multiplica todo lo que baja por la cadena, así que ∂L/∂w₁ se apaga aunque el error sea grande. La neurona "sabe" que se equivoca pero no puede corregirse: saturación, no convergencia. Nótese que ∂L/∂w₂ = ∂L/∂ŷ·h <em>no</em> se apaga — no cruza la sigmoide.' }
+];
+
+/* ═══════════════ Arranque ═══════════════ */
+Lab.init({
+    classNumber: 1,
+    setup() {
+        pcInitTab();
+        ['actSel', 'actX'].forEach(id => $(id).addEventListener('input', actUpdate));
+        $('actSel').addEventListener('change', actUpdate);
+        $('chainL').addEventListener('input', chainUpdate);
+        ['uatN', 'uatTarget', 'uatAct'].forEach(id => $(id).addEventListener('input', uatUpdate));
+        actUpdate();
+        uatUpdate();
+        gdInitTab();
+        bpInitTab();
+        Lab.quiz('quizBox', QUIZ, '🎯 Compruébalo — Clase 1');
+    }
+});
+})();
+</script>
+</body>
+</html>

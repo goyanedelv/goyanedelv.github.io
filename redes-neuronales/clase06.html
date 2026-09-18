@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clase 06 — Adaptación, Alineación y Agentes | Laboratorio RNA</title>
+<meta name="description" content="Laboratorio interactivo: LoRA con matrices reales, aproximación de bajo rango, pérdida DPO y un agente ReAct con herramientas que se ejecutan de verdad.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<link rel="stylesheet" href="assets/lab.css">
+<script src="assets/lab.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="initKaTeX()"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+    .header-box h1 { background: linear-gradient(135deg, var(--accent-emerald), var(--accent-violet)); -webkit-background-clip: text; background-clip: text; }
+    .react-step { border-left: 3px solid var(--accent-violet); background: var(--bg-inset);
+                  padding: 0.75rem 1rem; border-radius: 0 8px 8px 0; margin-bottom: 0.7rem; font-size: 0.86rem; }
+    .react-step .lbl { font-family: 'Fira Code', monospace; font-size: 0.72rem; font-weight: 700;
+                       text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 0.2rem; }
+    .thought .lbl { color: var(--series-6); } .action .lbl { color: var(--series-4); }
+    .obs .lbl { color: var(--series-1); }    .final .lbl { color: var(--ok); }
+    .react-step.final { border-left-color: var(--ok); }
+    .react-step code { background: rgba(0,0,0,.35); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.82rem; }
+    .mat-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+    .mat-op { align-self: center; font-size: 1.3rem; color: var(--accent-emerald); font-weight: 700; padding-top: 1.2rem; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+
+<nav>
+    <a href="index.html" class="nav-brand"><span>&larr;</span> Laboratorio RNA</a>
+    <div class="nav-links"></div>
+</nav>
+
+<div class="container" id="main">
+    <div class="header-box">
+        <h1>Clase 06 — Adaptación, alineación y agentes</h1>
+        <p>LoRA con las matrices del apunte, multiplicadas de verdad (incluida la comprobación de que fusionar
+           da exactamente lo mismo); la pérdida DPO sin factores inventados; y un agente ReAct cuyas
+           herramientas <strong>se ejecutan realmente</strong>.</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn" data-tab="tab1">1 · LoRA</button>
+        <button class="tab-btn" data-tab="tab2">2 · Bajo rango, en serio</button>
+        <button class="tab-btn" data-tab="tab3">3 · Alineación: RLHF vs DPO</button>
+        <button class="tab-btn" data-tab="tab4">4 · Agente ReAct</button>
+        <button class="tab-btn" data-tab="tab5">5 · Compruébalo</button>
+    </div>
+
+    <!-- ══════════════ TAB 1 ══════════════ -->
+    <div id="tab1" class="tab-content">
+        <div class="card">
+            <div class="card-title">Un paso de LoRA, a mano — y comprobado</div>
+            <div class="formula-box">
+                \[ y = W_0 x + \frac{\alpha}{r}(B A) x = \underbrace{\left[W_0 + \frac{\alpha}{r} BA\right]}_{W'} x \]
+            </div>
+            <p class="card-sub">Con \(d = k = 4\) y \(r = 1\), los números del ejemplo trabajado 6.2.2.
+                \(W_0\) está <strong>congelada</strong>; solo \(A\) y \(B\) se entrenan (y son editables).</p>
+
+            <div class="controls mb-2">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="loraAlpha">\(\alpha\) <output id="v_loraAlpha">2</output></label>
+                        <input type="range" id="loraAlpha" min="0" max="8" step="0.5" value="2">
+                    </div>
+                    <div class="control-group">
+                        <label>&nbsp;</label>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline" id="loraRestore">Volver al ejemplo del apunte</button>
+                            <button class="btn btn-sm btn-outline" id="loraZeroB">Poner B = 0 (inicialización)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mat-row">
+                <div><div class="matrix-caption">\(W_0\) — congelada (16 pesos)</div><div id="mW0"></div></div>
+                <div><div class="matrix-caption">\(B\) (4×1) — editable</div><div id="mB"></div></div>
+                <div class="mat-op">×</div>
+                <div><div class="matrix-caption">\(A\) (1×4) — editable</div><div id="mA"></div></div>
+            </div>
+
+            <div class="mat-row mt-3">
+                <div><div class="matrix-caption">\(BA\) — rango 1</div><div id="mBA"></div></div>
+                <div><div class="matrix-caption">\(\Delta W = \frac{\alpha}{r}BA\)</div><div id="mDW"></div></div>
+                <div><div class="matrix-caption">\(W' = W_0 + \Delta W\) — fusionada</div><div id="mWp"></div></div>
+            </div>
+
+            <div class="grid-2 mt-3">
+                <div class="readout" id="loraCalc"></div>
+                <div>
+                    <div class="note" id="loraNote"></div>
+                    <div class="note mt-2">
+                        <strong>Por qué cada fila de \(BA\) es múltiplo de \(A\).</strong> Eso <em>es</em> tener rango 1:
+                        toda la matriz cabe en una sola dirección. LoRA apuesta a que el ajuste útil para una tarea
+                        nueva vive en un subespacio de dimensión baja — la misma intuición de compresión que el PCA
+                        de la Clase 3, aplicada a los pesos.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Calculadora de parámetros y memoria</div>
+            <div class="grid-2">
+                <div>
+                    <div class="controls">
+                        <div class="control-row">
+                            <div class="control-group">
+                                <label for="lpD">Dimensión \(d = k\) <output id="v_lpD">4096</output></label>
+                                <input type="range" id="lpD" min="256" max="8192" step="256" value="4096">
+                            </div>
+                            <div class="control-group">
+                                <label for="lpR">Rango \(r\) <output id="v_lpR">8</output></label>
+                                <input type="range" id="lpR" min="1" max="256" step="1" value="8">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label for="lpModel">Tamaño del modelo base</label>
+                            <select id="lpModel">
+                                <option value="7">7 000 M de parámetros (7B)</option>
+                                <option value="13">13 000 M (13B)</option>
+                                <option value="70">70 000 M (70B)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="readout mt-2" id="lpOut"></div>
+                </div>
+                <div>
+                    <div class="chart-box" style="height:250px"><canvas id="lpCanvas"></canvas></div>
+                    <p class="fig-note">Memoria de entrenamiento por componente (escala logarítmica). El ahorro grande
+                        no está en los pesos —que hay que tener igual— sino en los <strong>gradientes y los estados
+                        del optimizador</strong>, que en full fine-tuning pesan varias veces el modelo entero.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 2 ══════════════ -->
+    <div id="tab2" class="tab-content">
+        <div class="card">
+            <div class="card-title">¿De verdad basta con rango bajo?</div>
+            <p class="card-sub">Una matriz cualquiera se aproxima por su mejor versión de rango \(r\)
+                (calculada aquí por iteración de potencia con deflación, que es lo que hace una SVD truncada).
+                Sube el rango y mira cuánto error queda: si la matriz tiene estructura,
+                <strong>unas pocas direcciones capturan casi todo</strong>.</p>
+
+            <div class="controls mb-2">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="lrRank">Rango \(r\) <output id="v_lrRank">2</output></label>
+                        <input type="range" id="lrRank" min="1" max="12" step="1" value="2">
+                    </div>
+                    <div class="control-group">
+                        <label for="lrKind">Estructura de la matriz</label>
+                        <select id="lrKind">
+                            <option value="smooth">Con estructura (patrón suave)</option>
+                            <option value="lowrank">Rango 3 exacto + ruido</option>
+                            <option value="random">Ruido puro, sin estructura</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mat-row">
+                <div><div class="matrix-caption">Matriz original (12×12)</div><div id="lrOrig"></div></div>
+                <div><div class="matrix-caption" id="lrCapApx"></div><div id="lrApprox"></div></div>
+                <div><div class="matrix-caption">Residuo (lo que se pierde)</div><div id="lrResid"></div></div>
+            </div>
+
+            <div class="grid-2 mt-3">
+                <div>
+                    <div class="chart-box" style="height:220px"><canvas id="lrSpectrum"></canvas></div>
+                    <p class="fig-note">Valores singulares en orden decreciente: cuánta "energía" aporta cada
+                        dirección. Una caída brusca significa que la matriz es esencialmente de rango bajo.</p>
+                </div>
+                <div>
+                    <div class="stat-row">
+                        <div class="stat"><div class="stat-label">Error relativo</div><div class="stat-value" id="lrErr">—</div>
+                            <div class="stat-hint">‖M − M_r‖ / ‖M‖</div></div>
+                        <div class="stat"><div class="stat-label">Compresión</div><div class="stat-value" id="lrComp">—</div>
+                            <div class="stat-hint">144 valores → r·(12+12)</div></div>
+                    </div>
+                    <div class="note mt-2" id="lrNote"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 3 ══════════════ -->
+    <div id="tab3" class="tab-content">
+        <div class="grid-2">
+            <div class="card" style="border-left:4px solid var(--series-2)">
+                <div class="card-title" style="color:var(--series-2)">RLHF con PPO</div>
+                <ol class="small text-sub" style="padding-left:1.1rem; display:flex; flex-direction:column; gap:0.35rem">
+                    <li>SFT: ajuste supervisado sobre demostraciones.</li>
+                    <li>Reward model: se entrena un modelo escalar \(R(x,y)\) sobre pares de preferencia.</li>
+                    <li>PPO: se optimiza la política contra \(R\), con penalización KL contra el modelo base.</li>
+                </ol>
+                <div class="note warn mt-2"><strong>Costo:</strong> cuatro modelos en memoria a la vez
+                    (política, referencia, reward, crítico) y un bucle de RL notoriamente inestable de afinar.</div>
+            </div>
+            <div class="card" style="border-left:4px solid var(--series-3)">
+                <div class="card-title" style="color:var(--series-3)">DPO</div>
+                <p class="small text-sub">Elimina el reward model: la recompensa <em>ya estaba</em> implícita en
+                    cuánto se ha movido la política respecto de su referencia.</p>
+                <div class="formula-box" style="border-left-color:var(--series-3)">
+                    \[ \mathcal{L}_{\text{DPO}} = -\log \sigma\!\left( \beta \log\frac{\pi_\theta(y_w)}{\pi_{\text{ref}}(y_w)}
+                       - \beta \log\frac{\pi_\theta(y_l)}{\pi_{\text{ref}}(y_l)} \right) \]
+                </div>
+                <div class="note mt-2"><strong>Recompensa implícita:</strong> \(\hat r = \beta \log(\pi_\theta/\pi_{\text{ref}})\)
+                    — se calcula con dos modelos que ya teníamos.</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Un paso de DPO, con los números del apunte</div>
+            <div class="grid-2">
+                <div>
+                    <div class="controls">
+                        <div class="control-row">
+                            <div class="control-group"><label for="dpoLw">\(\log \pi_\theta(y_w)\) <output id="v_dpoLw">−2.00</output></label>
+                                <input type="range" id="dpoLw" min="-5" max="-0.5" step="0.05" value="-2.0"></div>
+                            <div class="control-group"><label for="dpoRw">\(\log \pi_{\text{ref}}(y_w)\) <output id="v_dpoRw">−2.30</output></label>
+                                <input type="range" id="dpoRw" min="-5" max="-0.5" step="0.05" value="-2.3"></div>
+                            <div class="control-group"><label for="dpoLl">\(\log \pi_\theta(y_l)\) <output id="v_dpoLl">−3.50</output></label>
+                                <input type="range" id="dpoLl" min="-5" max="-0.5" step="0.05" value="-3.5"></div>
+                            <div class="control-group"><label for="dpoRl">\(\log \pi_{\text{ref}}(y_l)\) <output id="v_dpoRl">−2.40</output></label>
+                                <input type="range" id="dpoRl" min="-5" max="-0.5" step="0.05" value="-2.4"></div>
+                        </div>
+                        <div class="control-group">
+                            <label for="dpoBeta">\(\beta\) <output id="v_dpoBeta">0.10</output></label>
+                            <input type="range" id="dpoBeta" min="0.01" max="0.6" step="0.01" value="0.1">
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline" data-dpo="good">Escenario bien alineado</button>
+                            <button class="btn btn-sm btn-outline" data-dpo="bad">Escenario mal alineado</button>
+                        </div>
+                    </div>
+                    <div class="readout mt-2" id="dpoCalc"></div>
+                </div>
+                <div>
+                    <div class="stat-row">
+                        <div class="stat"><div class="stat-label">Pérdida</div><div class="stat-value" id="dpoLoss">—</div></div>
+                        <div class="stat"><div class="stat-label">Peso del gradiente</div><div class="stat-value" id="dpoW">—</div>
+                            <div class="stat-hint">σ(r̂_l − r̂_w)</div></div>
+                    </div>
+                    <div class="chart-box mt-2" style="height:240px"><canvas id="dpoCanvas"></canvas></div>
+                    <p class="fig-note">Pérdida en función del margen \(\hat r_w - \hat r_l\), para varios \(\beta\).
+                        El punto marca dónde estás.</p>
+                    <div class="note mt-2" id="dpoNote"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 4 ══════════════ -->
+    <div id="tab4" class="tab-content">
+        <div class="card">
+            <div class="card-title">Agente ReAct <span class="pill ok">las herramientas se ejecutan de verdad</span></div>
+            <p class="card-sub">El bucle razonamiento → acción → observación. La calculadora <strong>evalúa
+                realmente</strong> la expresión y la búsqueda consulta una base de datos incluida en la página:
+                las observaciones no están escritas de antemano. Lo que sí está simplificado es el
+                <em>razonamiento</em> — aquí sigue reglas; en un agente real lo genera el LLM.</p>
+
+            <div class="controls mb-2">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="agEntity">Entidad a consultar</label>
+                        <select id="agEntity"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="agField">Dato</label>
+                        <select id="agField">
+                            <option value="poblacion">población (millones)</option>
+                            <option value="superficie">superficie (miles de km²)</option>
+                            <option value="pib">PIB per cápita (miles de US$)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="agOp">Operación</label>
+                        <select id="agOp">
+                            <option value="*">multiplicado por</option>
+                            <option value="+">más</option>
+                            <option value="-">menos</option>
+                            <option value="/">dividido por</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="agNum">Operando <output id="v_agNum">2</output></label>
+                        <input type="range" id="agNum" min="1" max="20" step="1" value="2">
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-sm" id="agRun">Ejecutar el bucle paso a paso</button>
+                    <button class="btn btn-sm btn-outline" id="agAll">Ejecutar de una vez</button>
+                    <button class="btn btn-sm btn-outline" id="agReset">Reiniciar</button>
+                    <button class="btn btn-sm btn-outline" id="agBreak">Romper una herramienta</button>
+                </div>
+            </div>
+
+            <div class="grid-2 wide-left">
+                <div>
+                    <div class="readout mb-2" id="agQuestion"></div>
+                    <div id="agTrace"></div>
+                </div>
+                <div>
+                    <div class="matrix-caption" style="text-align:left">Herramientas disponibles</div>
+                    <div class="readout" id="agTools"></div>
+                    <div class="note mt-2" id="agNote"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">El espectro de adaptación</div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>Método</th><th>Parámetros entrenados</th><th>VRAM</th><th>Latencia extra</th><th>Cuándo</th></tr></thead>
+                    <tbody>
+                        <tr><td style="color:var(--series-1);font-weight:700">Prompting / few-shot</td>
+                            <td class="num">0 %</td><td>Baja (se paga en contexto)</td><td class="num">0 en pesos</td>
+                            <td>Prototipar, tareas puntuales, cero entrenamiento.</td></tr>
+                        <tr><td style="color:var(--series-3);font-weight:700">LoRA / PEFT</td>
+                            <td class="num">&lt; 0.1 %</td><td>Reducción típica de 3–4×</td><td class="num">0 si se fusiona</td>
+                            <td>Adaptar a un dominio o formato (JSON, SQL, jerga técnica).</td></tr>
+                        <tr><td style="color:var(--series-2);font-weight:700">Full fine-tuning</td>
+                            <td class="num">100 %</td><td>Muy alta (~4× los pesos)</td><td class="num">0</td>
+                            <td>Idioma o dominio realmente nuevo, con muchos datos.</td></tr>
+                        <tr><td style="color:var(--series-6);font-weight:700">Alineación (DPO/RLHF)</td>
+                            <td class="num">100 % o adapters</td><td>Moderada (DPO) / muy alta (RLHF)</td><td class="num">0</td>
+                            <td>Ajustar tono, seguridad y seguimiento de instrucciones.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="note">
+                <strong>La regla práctica.</strong> Sube por la escalera solo cuando el escalón anterior se quede
+                corto: primero prompting, luego LoRA, y solo entonces plantéate tocar todos los pesos. Cada peldaño
+                multiplica el costo y el riesgo de olvido catastrófico.
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 5 ══════════════ -->
+    <div id="tab5" class="tab-content">
+        <div id="quizBox"></div>
+        <div class="card">
+            <div class="card-title">Para seguir jugando</div>
+            <ul class="small text-sub" style="padding-left:1.2rem; display:flex; flex-direction:column; gap:0.4rem">
+                <li>En la 1, pulsa "B = 0": \(\Delta W\) se anula y \(W' = W_0\) exactamente. Por eso LoRA arranca sin perturbar el modelo — y por eso \(A\) no puede ser también cero.</li>
+                <li>En la 2, elige "ruido puro" y sube el rango: el error casi no baja. La apuesta de LoRA solo funciona si la actualización tiene estructura.</li>
+                <li>En la 3, carga el escenario mal alineado: la pérdida sube a 0.750 y el peso del gradiente pasa de 0.4651 a 0.5275. DPO se concentra solo en lo que aún falla.</li>
+                <li>En la 3, sube \(\beta\) a 0.5: la curva se vuelve mucho más abrupta. \(\beta\) controla cuánto se permite alejarse de la referencia.</li>
+                <li>En la 4, pulsa "romper una herramienta" y vuelve a ejecutar: mira qué hace el agente cuando la observación no es la esperada.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<footer class="lab-footer"></footer>
+
+<script>
+(function () {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const fmt = Lab.fmt;
+const MM = Lab.M;
+
+/* ═══════════════ TAB 1 · LoRA ═══════════════ */
+const W0 = [[0.2, -0.1, 0.4, 0.0], [0.1, 0.3, -0.2, 0.1], [-0.3, 0.2, 0.1, 0.4], [0.0, 0.1, 0.2, -0.1]];
+const XVEC = [1.0, 0.5, -0.5, 0.2];
+const lora = { B: [[0.5], [-0.3], [0.2], [0.1]], A: [[0.4, -0.2, 0.3, 0.1]] };
+
+function editableMat(container, M, onChange) {
+    if (typeof container === 'string') container = document.getElementById(container);
+    container.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'matrix';
+    grid.style.gridTemplateColumns = `repeat(${M[0].length}, auto)`;
+    const mx = Math.max(0.3, ...M.flat().map(Math.abs));
+    M.forEach((row, r) => row.forEach((v, c) => {
+        const cell = document.createElement('div');
+        cell.className = 'matrix-cell sm';
+        const anyNeg = M.some(rr => rr.some(x => x < 0));
+        const bg = anyNeg ? Lab.divColor(v, mx) : Lab.seqColor(Math.abs(v) / mx);
+        cell.style.background = bg;
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.value = fmt(v, 2);
+        inp.style.cssText = 'width:100%;height:100%;background:transparent;border:none;text-align:center;font-family:Fira Code,monospace;font-size:.72rem;font-weight:600;padding:0';
+        inp.style.color = Lab.inkOn(bg);
+        inp.setAttribute('aria-label', `fila ${r + 1} columna ${c + 1}`);
+        inp.addEventListener('change', () => {
+            const nv = parseFloat(inp.value.replace(',', '.'));
+            M[r][c] = isFinite(nv) ? nv : 0;
+            onChange();
+        });
+        cell.appendChild(inp);
+        grid.appendChild(cell);
+    }));
+    container.appendChild(grid);
+}
+
+function loraUpdate() {
+    const alpha = +$('loraAlpha').value, r = 1;
+    $('v_loraAlpha').textContent = fmt(alpha, 1).replace(/\.0$/, '');
+
+    const BA = MM.mul(lora.B, lora.A);
+    const dW = MM.scale(BA, alpha / r);
+    const Wp = MM.add(W0, dW);
+
+    const y0 = MM.matVec(W0, XVEC);
+    const dY = MM.matVec(dW, XVEC);
+    const y = y0.map((v, i) => v + dY[i]);
+    const yMerged = MM.matVec(Wp, XVEC);
+    const maxDiff = Math.max(...y.map((v, i) => Math.abs(v - yMerged[i])));
+
+    Lab.heatmap('mW0', W0, { scale: 'div', digits: 2, small: true, max: 0.45 });
+    editableMat('mB', lora.B, loraUpdate);
+    editableMat('mA', lora.A, loraUpdate);
+    Lab.heatmap('mBA', BA, { scale: 'div', digits: 2, small: true });
+    Lab.heatmap('mDW', dW, { scale: 'div', digits: 2, small: true });
+    Lab.heatmap('mWp', Wp, { scale: 'div', digits: 2, small: true });
+
+    $('loraCalc').innerHTML =
+        `<strong>x = (${XVEC.map(v => fmt(v, 1)).join(', ')})</strong><br><br>` +
+        `W₀·x = (${y0.map(v => fmt(v, 3)).join(', ')})<br>` +
+        `(α/r)·B·A·x = (${dY.map(v => fmt(v, 3)).join(', ')})<br>` +
+        `<span style="color:var(--text-sub)">─────────────────────────</span><br>` +
+        `y = W₀x + ΔWx = (<strong>${y.map(v => fmt(v, 3)).join(', ')}</strong>)<br>` +
+        `W′·x &nbsp;(fusionada) = (<strong>${yMerged.map(v => fmt(v, 3)).join(', ')}</strong>)<br><br>` +
+        `Diferencia máxima: <strong>${Lab.sci(maxDiff, 1)}</strong> ` +
+        `<span class="pill ok">idénticos</span> <span class="text-sub">— es la misma cuenta reagrupada, no una aproximación</span>`;
+
+    const n = $('loraNote');
+    const bZero = lora.B.every(row => row.every(v => v === 0));
+    if (bZero) {
+        n.className = 'note';
+        n.innerHTML = `<strong>Así arranca LoRA.</strong> Con \\(B = 0\\), \\(\\Delta W = 0\\) y \\(W' = W_0\\): el adapter empieza siendo <em>invisible</em>, así que el modelo se comporta exactamente igual que antes de adaptarlo. Pero \\(A\\) <strong>no</strong> puede ser también cero: si ambas lo fueran, el gradiente de las dos sería nulo y nunca se despegarían del cero. Por eso \\(A\\) se inicializa aleatoria y \\(B\\) en cero.`;
+    } else {
+        n.className = 'note';
+        n.innerHTML = `<strong>Fusionar sale gratis.</strong> Como los dos términos son lineales en \\(x\\), se puede factorizar y guardar una sola matriz \\(W'\\) del <em>mismo tamaño</em> que \\(W_0\\). El modelo adaptado tiene entonces exactamente la misma forma y el mismo costo de inferencia: <strong>cero latencia añadida</strong>. Esto distingue a LoRA de los adapters clásicos, que insertan capas nuevas y sí añaden cómputo para siempre.`;
+    }
+    Lab.renderMath(n);
+}
+
+function lpUpdate() {
+    const d = +$('lpD').value, r = +$('lpR').value, sizeB = +$('lpModel').value;
+    $('v_lpD').textContent = Lab.fmtInt(d);
+    $('v_lpR').textContent = r;
+
+    const full = d * d, low = r * (d + d);
+    const pct = low / full * 100;
+    const totalParams = sizeB * 1e9;
+    const trainable = totalParams * (low / full);
+
+    // Memoria en GB, fp16 pesos (2 B) + grad (2 B) + estados Adam en fp32 (8 B)
+    const gb = (bytes) => bytes / 1e9;
+    const wFull = gb(totalParams * 2), gFull = gb(totalParams * 2), oFull = gb(totalParams * 8);
+    const wLora = wFull, gLora = gb(trainable * 2), oLora = gb(trainable * 8);
+
+    $('lpOut').innerHTML =
+        `Una matriz \\(${Lab.fmtInt(d)} \\times ${Lab.fmtInt(d)}\\):<br>` +
+        `&nbsp;&nbsp;completa &nbsp;= ${Lab.fmtInt(full)} parámetros<br>` +
+        `&nbsp;&nbsp;LoRA r=${r} = ${Lab.fmtInt(low)} parámetros &nbsp;(<strong>${fmt(pct, 3)} %</strong>)<br>` +
+        `&nbsp;&nbsp;factor de reducción: <strong>${fmt(full / low, 0)}×</strong><br><br>` +
+        `Modelo de ${sizeB}B → entrenables ≈ <strong>${Lab.fmtInt(trainable)}</strong><br>` +
+        `Memoria de entrenamiento: <strong>${fmt(wFull + gFull + oFull, 1)} GB</strong> (completo) ` +
+        `vs <strong>${fmt(wLora + gLora + oLora, 1)} GB</strong> (LoRA)`;
+    Lab.renderMath($('lpOut'));
+
+    Lab.chart('lpCanvas', {
+        type: 'bar',
+        data: {
+            labels: ['Pesos', 'Gradientes', 'Estados de Adam'],
+            datasets: [
+                { label: 'Full fine-tuning', data: [wFull, gFull, oFull], backgroundColor: 'var(--series-2)' },
+                { label: `LoRA (r = ${r})`, data: [wLora, Math.max(gLora, 1e-3), Math.max(oLora, 1e-3)], backgroundColor: 'var(--series-3)' }
+            ]
+        },
+        options: {
+            scales: { y: { type: 'logarithmic', title: { display: true, text: 'GB (log)', color: '#94a3b8' } } },
+            plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y, 2)} GB` } } }
+        }
+    });
+}
+
+/* ═══════════════ TAB 2 · Bajo rango ═══════════════ */
+const NSIZE = 12;
+
+function buildMatrix(kind) {
+    const rand = Lab.rng(17);
+    const M = Lab.M.zeros(NSIZE, NSIZE);
+    if (kind === 'smooth') {
+        for (let i = 0; i < NSIZE; i++) for (let j = 0; j < NSIZE; j++)
+            M[i][j] = Math.sin(i * 0.5) * Math.cos(j * 0.4) + 0.5 * Math.sin((i + j) * 0.3);
+    } else if (kind === 'lowrank') {
+        for (let t = 0; t < 3; t++) {
+            const u = Array.from({ length: NSIZE }, () => Lab.gauss(rand));
+            const v = Array.from({ length: NSIZE }, () => Lab.gauss(rand));
+            for (let i = 0; i < NSIZE; i++) for (let j = 0; j < NSIZE; j++) M[i][j] += u[i] * v[j] / (t + 1);
+        }
+        for (let i = 0; i < NSIZE; i++) for (let j = 0; j < NSIZE; j++) M[i][j] += Lab.gauss(rand) * 0.08;
+    } else {
+        for (let i = 0; i < NSIZE; i++) for (let j = 0; j < NSIZE; j++) M[i][j] = Lab.gauss(rand);
+    }
+    return M;
+}
+
+/** SVD truncada por iteración de potencia con deflación. */
+function truncatedSVD(M, rank) {
+    const A = M.map(r => r.slice());
+    const comps = [];
+    const rand = Lab.rng(5);
+    for (let t = 0; t < rank; t++) {
+        let v = Array.from({ length: NSIZE }, () => Lab.gauss(rand));
+        let u = new Array(NSIZE).fill(0), sigma = 0;
+        for (let it = 0; it < 120; it++) {
+            u = MM.matVec(A, v);
+            const nu = MM.norm(u) || 1e-12; u = u.map(x => x / nu);
+            v = MM.matVec(MM.T(A), u);
+            sigma = MM.norm(v) || 0;
+            v = v.map(x => x / (sigma || 1e-12));
+        }
+        if (!isFinite(sigma) || sigma < 1e-10) break;
+        comps.push({ sigma, u: u.slice(), v: v.slice() });
+        for (let i = 0; i < NSIZE; i++) for (let j = 0; j < NSIZE; j++) A[i][j] -= sigma * u[i] * v[j];
+    }
+    return comps;
+}
+
+function lrUpdate() {
+    const rank = +$('lrRank').value, kind = $('lrKind').value;
+    $('v_lrRank').textContent = rank;
+
+    const M = buildMatrix(kind);
+    const comps = truncatedSVD(M, Math.max(rank, 12));
+    const approx = Lab.M.zeros(NSIZE, NSIZE);
+    comps.slice(0, rank).forEach(({ sigma, u, v }) => {
+        for (let i = 0; i < NSIZE; i++) for (let j = 0; j < NSIZE; j++) approx[i][j] += sigma * u[i] * v[j];
+    });
+    const resid = M.map((row, i) => row.map((v, j) => v - approx[i][j]));
+
+    const nrm = (X) => Math.sqrt(X.flat().reduce((s, v) => s + v * v, 0));
+    const relErr = nrm(resid) / nrm(M);
+
+    const mx = Math.max(...M.flat().map(Math.abs));
+    const opt = { scale: 'div', max: mx, digits: 1, small: true, showValues: false };
+    $('lrCapApx').textContent = `Aproximación de rango ${rank}`;
+    Lab.heatmap('lrOrig', M, opt);
+    Lab.heatmap('lrApprox', approx, opt);
+    Lab.heatmap('lrResid', resid, opt);
+
+    $('lrErr').textContent = fmt(relErr * 100, 1) + ' %';
+    $('lrErr').style.color = relErr < 0.1 ? 'var(--ok)' : (relErr < 0.35 ? 'var(--warn)' : 'var(--bad)');
+    $('lrComp').textContent = fmt(144 / (rank * 24), 2) + '×';
+
+    Lab.chart('lrSpectrum', {
+        type: 'bar',
+        data: {
+            labels: comps.map((_, i) => String(i + 1)),
+            datasets: [{ label: 'valor singular', data: comps.map(c => c.sigma),
+                         backgroundColor: comps.map((_, i) => i < rank ? 'var(--series-3)' : '#334155') }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { x: { title: { display: true, text: 'componente', color: '#94a3b8' } },
+                      y: { title: { display: true, text: 'σ', color: '#94a3b8' } } }
+        }
+    });
+
+    const n = $('lrNote');
+    if (kind === 'random') {
+        n.className = 'note warn';
+        n.innerHTML = `<strong>Sin estructura, no hay atajo.</strong> El espectro es plano: todas las direcciones aportan lo mismo, así que truncar pierde información en proporción directa. Si la actualización que necesita tu tarea fuera así, LoRA no serviría — y esa es la hipótesis empírica del paper: <em>en la práctica no lo es</em>.`;
+    } else if (relErr < 0.12) {
+        n.className = 'note';
+        n.innerHTML = `<strong>Rango ${rank} basta.</strong> Con solo ${rank * 24} números (frente a 144) se reconstruye el ${fmt((1 - relErr) * 100, 1)} % de la matriz. El residuo es prácticamente ruido. Esta es exactamente la apuesta de LoRA, trasladada a matrices de 4096×4096.`;
+    } else {
+        n.className = 'note';
+        n.innerHTML = `<strong>Todavía falta.</strong> Con rango ${rank} queda un ${fmt(relErr * 100, 1)} % de error. Sube el rango y observa dónde está el codo del espectro: ahí es donde conviene cortar, ni antes ni después.`;
+    }
+}
+
+/* ═══════════════ TAB 3 · DPO ═══════════════ */
+function dpoUpdate() {
+    const lw = +$('dpoLw').value, rw = +$('dpoRw').value;
+    const ll = +$('dpoLl').value, rl = +$('dpoRl').value;
+    const beta = +$('dpoBeta').value;
+    $('v_dpoLw').textContent = fmt(lw, 2); $('v_dpoRw').textContent = fmt(rw, 2);
+    $('v_dpoLl').textContent = fmt(ll, 2); $('v_dpoRl').textContent = fmt(rl, 2);
+    $('v_dpoBeta').textContent = fmt(beta, 2);
+
+    const dw = lw - rw, dl = ll - rl;
+    const rHatW = beta * dw, rHatL = beta * dl;
+    const margin = rHatW - rHatL;
+    const loss = -Math.log(Lab.sigmoid(margin));
+    const gw = Lab.sigmoid(rHatL - rHatW);
+
+    $('dpoCalc').innerHTML =
+        `<strong>Paso 1 — cuánto se movió cada respuesta</strong><br>` +
+        `preferida: ${fmt(lw, 2)} − (${fmt(rw, 2)}) = <strong>${fmt(dw, 2)}</strong> ${dw > 0 ? '↑ subió' : '↓ bajó'}<br>` +
+        `rechazada: ${fmt(ll, 2)} − (${fmt(rl, 2)}) = <strong>${fmt(dl, 2)}</strong> ${dl > 0 ? '↑ subió' : '↓ bajó'}<br><br>` +
+        `<strong>Paso 2 — recompensas implícitas (×β)</strong><br>` +
+        `r̂_w = ${fmt(beta, 2)}·${fmt(dw, 2)} = <strong>${fmt(rHatW, 4)}</strong><br>` +
+        `r̂_l = ${fmt(beta, 2)}·${fmt(dl, 2)} = <strong>${fmt(rHatL, 4)}</strong><br>` +
+        `margen = <strong>${fmt(margin, 4)}</strong><br><br>` +
+        `<strong>Paso 3 — la pérdida</strong><br>` +
+        `σ(${fmt(margin, 3)}) = ${fmt(Lab.sigmoid(margin), 4)}<br>` +
+        `L = −log(${fmt(Lab.sigmoid(margin), 4)}) = <strong>${fmt(loss, 4)}</strong>`;
+
+    $('dpoLoss').textContent = fmt(loss, 3);
+    $('dpoW').textContent = fmt(gw, 4);
+    $('dpoLoss').style.color = loss > 0.7 ? 'var(--bad)' : (loss > 0.6 ? 'var(--warn)' : 'var(--ok)');
+
+    const xs = [];
+    for (let m = -3; m <= 3.001; m += 0.1) xs.push(m);
+    Lab.chart('dpoCanvas', {
+        type: 'line',
+        data: {
+            labels: xs.map(v => fmt(v, 1)),
+            datasets: [
+                { label: 'pérdida L(margen)', data: xs.map(m => -Math.log(Lab.sigmoid(m))), borderColor: 'var(--series-3)', borderWidth: 3 },
+                { label: 'peso del gradiente σ(−margen)', data: xs.map(m => Lab.sigmoid(-m)), borderColor: 'var(--series-2)', borderDash: [5, 4] },
+                { label: 'situación actual', data: xs.map(m => Math.abs(m - margin) < 0.051 ? loss : null),
+                  borderColor: 'var(--series-5)', pointRadius: 7, showLine: false }
+            ]
+        },
+        options: {
+            scales: { x: { title: { display: true, text: 'margen  r̂_w − r̂_l', color: '#94a3b8' },
+                           ticks: { callback: (v, i) => (i % 10 === 0 ? xs[i].toFixed(0) : '') } },
+                      y: { min: 0, max: 3.2, title: { display: true, text: 'valor', color: '#94a3b8' } } }
+        }
+    });
+
+    const n = $('dpoNote');
+    if (margin > 0) {
+        n.className = 'note';
+        n.innerHTML = `<strong>Bien ordenado.</strong> La política subió la preferida más de lo que subió la rechazada, así que el margen es positivo y la pérdida es baja (${fmt(loss, 3)}). El peso del gradiente vale ${fmt(gw, 4)}: por debajo de 0.5, es decir, <em>se está apagando solo</em>. DPO deja de gastar señal en los pares que ya domina.`;
+    } else {
+        n.className = 'note warn';
+        n.innerHTML = `<strong>Ordenado al revés.</strong> La política prefiere la respuesta que los humanos rechazaron: margen negativo, pérdida alta (${fmt(loss, 3)}) y peso del gradiente ${fmt(gw, 4)} — por encima de 0.5. El gradiente pesa <em>más</em> justo donde el modelo se equivoca, sin que nadie tenga que programar un currículo ni ponderar el dataset a mano.`;
+    }
+}
+
+/* ═══════════════ TAB 4 · Agente ReAct ═══════════════ */
+const KB = {
+    'Francia':  { poblacion: 68.0, superficie: 551.7, pib: 44.4 },
+    'España':   { poblacion: 48.4, superficie: 505.9, pib: 33.5 },
+    'Italia':   { poblacion: 58.9, superficie: 302.1, pib: 39.0 },
+    'Chile':    { poblacion: 19.6, superficie: 756.1, pib: 17.1 },
+    'México':   { poblacion: 129.4, superficie: 1964.4, pib: 13.8 },
+    'Argentina':{ poblacion: 46.2, superficie: 2780.4, pib: 13.7 }
+};
+const FIELD_NAMES = { poblacion: 'población (millones)', superficie: 'superficie (miles de km²)', pib: 'PIB per cápita (miles de US$)' };
+const OP_NAMES = { '*': 'multiplicado por', '+': 'más', '-': 'menos', '/': 'dividido por' };
+const ag = { step: 0, broken: false, trace: [], searched: null, computed: null };
+
+/** Herramienta real: consulta la base de datos. */
+function toolSearch(entity, field) {
+    if (ag.broken) return { ok: false, text: 'ERROR: servicio no disponible (timeout)' };
+    const rec = KB[entity];
+    if (!rec || rec[field] === undefined) return { ok: false, text: `ERROR: no encontrado "${entity}.${field}"` };
+    return { ok: true, value: rec[field], text: `${entity} — ${FIELD_NAMES[field]}: ${rec[field]}` };
+}
+
+/** Herramienta real: evalúa aritmética, con su propio analizador (sin eval). */
+function toolCalc(expr) {
+    let i = 0;
+    const s = expr.replace(/\s+/g, '');
+    function num() {
+        if (s[i] === '(') { i++; const v = add(); i++; return v; }
+        if (s[i] === '-') { i++; return -num(); }
+        let j = i;
+        while (i < s.length && /[\d.]/.test(s[i])) i++;
+        return parseFloat(s.slice(j, i));
+    }
+    function mul() { let v = num(); while (s[i] === '*' || s[i] === '/') { const o = s[i++]; const r = num(); v = o === '*' ? v * r : v / r; } return v; }
+    function add() { let v = mul(); while (s[i] === '+' || s[i] === '-') { const o = s[i++]; const r = mul(); v = o === '+' ? v + r : v - r; } return v; }
+    const out = add();
+    if (!isFinite(out)) return { ok: false, text: 'ERROR: resultado no finito' };
+    return { ok: true, value: out, text: String(Math.round(out * 1000) / 1000) };
+}
+
+function agQuestion() {
+    const e = $('agEntity').value, f = $('agField').value, o = $('agOp').value, n = +$('agNum').value;
+    return { e, f, o, n, text: `¿Cuánto es la ${FIELD_NAMES[f].split(' (')[0]} de ${e} ${OP_NAMES[o]} ${n}?` };
+}
+
+function agRender() {
+    const q = agQuestion();
+    $('agQuestion').innerHTML = `<strong>Pregunta del usuario</strong><br>${q.text}`;
+    $('agTrace').innerHTML = ag.trace.map(s =>
+        `<div class="react-step ${s.kind}"><span class="lbl">${s.label}</span>${s.body}</div>`).join('')
+        || '<div class="small text-sub">Pulsa «Ejecutar» para arrancar el bucle.</div>';
+
+    $('agTools').innerHTML =
+        `<strong>buscar_dato(entidad, campo)</strong><br>` +
+        `<span class="text-sub">consulta una base de ${Object.keys(KB).length} países</span> ` +
+        `${ag.broken ? '<span class="pill bad">rota</span>' : '<span class="pill ok">operativa</span>'}<br><br>` +
+        `<strong>calculadora(expresión)</strong><br>` +
+        `<span class="text-sub">analizador aritmético propio: + − × ÷ y paréntesis</span> ` +
+        `<span class="pill ok">operativa</span>`;
+
+    $('agNote').innerHTML = ag.broken
+        ? '<strong>Herramienta rota.</strong> El agente recibe un error en vez del dato. Un agente real debería reintentar, probar otra herramienta o admitir que no puede responder — <em>no</em> inventarse el número. Alucinar sobre una observación fallida es el modo de fallo más peligroso de los agentes con herramientas.'
+        : '<strong>El bucle, sin misterio.</strong> Pensamiento → acción → observación, repetido hasta que el agente tiene lo que necesita. Lo que aporta el LLM es <em>decidir</em> qué herramienta llamar y con qué argumentos; el cálculo lo hace la herramienta, que no se equivoca en aritmética. Por eso dar herramientas es más fiable que pedirle al modelo que calcule de cabeza.';
+}
+
+function agStep() {
+    const q = agQuestion();
+    if (ag.step === 0) {
+        ag.trace.push({ kind: 'thought', label: 'Thought 1',
+            body: `El usuario pregunta por la ${FIELD_NAMES[q.f].split(' (')[0]} de ${q.e}, y luego una operación aritmética. No tengo ese dato memorizado: primero debo buscarlo.` });
+        ag.step = 1;
+    } else if (ag.step === 1) {
+        const res = toolSearch(q.e, q.f);
+        ag.searched = res;
+        ag.trace.push({ kind: 'action', label: 'Action 1', body: `<code>buscar_dato("${q.e}", "${q.f}")</code>` });
+        ag.trace.push({ kind: 'obs', label: 'Observation 1',
+            body: res.ok ? res.text : `<span style="color:var(--bad)">${res.text}</span>` });
+        ag.step = res.ok ? 2 : 99;
+    } else if (ag.step === 2) {
+        ag.trace.push({ kind: 'thought', label: 'Thought 2',
+            body: `Ya tengo el valor (${ag.searched.value}). Ahora necesito calcular <code>${ag.searched.value} ${q.o} ${q.n}</code>. No lo hago de cabeza: uso la calculadora.` });
+        ag.step = 3;
+    } else if (ag.step === 3) {
+        const expr = `${ag.searched.value} ${q.o} ${q.n}`;
+        const res = toolCalc(expr);
+        ag.computed = res;
+        ag.trace.push({ kind: 'action', label: 'Action 2', body: `<code>calculadora("${expr}")</code>` });
+        ag.trace.push({ kind: 'obs', label: 'Observation 2', body: res.text });
+        ag.step = 4;
+    } else if (ag.step === 4) {
+        const unit = q.f === 'poblacion' ? 'millones de habitantes' : (q.f === 'superficie' ? 'miles de km²' : 'miles de US$');
+        ag.trace.push({ kind: 'thought', label: 'Thought 3', body: 'Tengo el resultado. Puedo responder.' });
+        ag.trace.push({ kind: 'final', label: 'Final Answer',
+            body: `${FIELD_NAMES[q.f].split(' (')[0]} de ${q.e} ${q.o} ${q.n} = <strong>${ag.computed.text}</strong> ${unit}.` });
+        ag.step = 100;
+    } else if (ag.step === 99) {
+        ag.trace.push({ kind: 'thought', label: 'Thought 2',
+            body: 'La herramienta falló. No tengo el dato y <strong>no debo inventarlo</strong>: lo correcto es reportar la limitación.' });
+        ag.trace.push({ kind: 'final', label: 'Final Answer',
+            body: `<span style="color:var(--warn)">No puedo responder: la herramienta de búsqueda no está disponible. Reintenta más tarde.</span>` });
+        ag.step = 100;
+    }
+    agRender();
+    $('agRun').disabled = ag.step >= 100;
+}
+
+function agReset() {
+    ag.step = 0; ag.trace = []; ag.searched = null; ag.computed = null;
+    $('agRun').disabled = false;
+    agRender();
+}
+
+function agInit() {
+    $('agEntity').innerHTML = Object.keys(KB).map(k => `<option value="${k}">${k}</option>`).join('');
+    ['agEntity', 'agField', 'agOp'].forEach(id => $(id).addEventListener('change', agReset));
+    $('agNum').addEventListener('input', () => { $('v_agNum').textContent = $('agNum').value; agReset(); });
+    $('agRun').addEventListener('click', agStep);
+    $('agAll').addEventListener('click', () => { agReset(); let guard = 0; while (ag.step < 100 && guard++ < 12) agStep(); });
+    $('agReset').addEventListener('click', agReset);
+    $('agBreak').addEventListener('click', () => {
+        ag.broken = !ag.broken;
+        $('agBreak').textContent = ag.broken ? 'Reparar la herramienta' : 'Romper una herramienta';
+        agReset();
+    });
+    agReset();
+}
+
+/* ═══════════════ TAB 5 · Quiz ═══════════════ */
+const QUIZ = [
+    { q: 'LoRA con \\(d = k = 4096\\) y \\(r = 8\\). ¿Cuántos parámetros entrenables tiene esa matriz?',
+      opts: ['16 777 216 (igual que la original)', '\\(r(d+k) = 8 \\times 8192 = 65\\,536\\), un 0.39 %',
+             '\\(r \\times d \\times k\\)', '8, uno por rango'],
+      answer: 1,
+      why: '\\(A\\) es \\(r\\times k = 8\\times4096\\) y \\(B\\) es \\(d\\times r = 4096\\times8\\): en total \\(r(d+k) = 65\\,536\\) frente a los 16.7 millones de \\(W_0\\), un factor de 256×. La fórmula no cambia con la escala, solo el tamaño: es la misma cuenta que en el ejemplo 4×4 del apunte.' },
+    { q: '¿Por qué LoRA inicializa \\(B = 0\\) pero \\(A\\) aleatoria, y no ambas en cero?',
+      opts: ['Por simetría estética',
+             'Con \\(B=0\\) el adapter arranca invisible (\\(\\Delta W = 0\\)); si \\(A\\) también fuera 0, el gradiente de ambas sería nulo y nunca aprenderían',
+             'Porque \\(A\\) tiene más parámetros',
+             'Para reducir la memoria'],
+      answer: 1,
+      why: 'Son dos requisitos a la vez. \\(B = 0\\) garantiza \\(\\Delta W = BA = 0\\) al empezar: el modelo adaptado es idéntico al original, sin perturbación. Pero el gradiente respecto de \\(B\\) es proporcional a \\(A\\), y el de \\(A\\) proporcional a \\(B\\): si ambas fueran cero, ambos gradientes serían cero y el adapter se quedaría clavado en el origen para siempre. \\(A\\) aleatoria rompe esa simetría.' },
+    { q: 'Tras fusionar el adapter (\\(W^{\\prime} = W_0 + \\frac{\\alpha}{r}BA\\)), ¿cuánta latencia añade LoRA en inferencia?',
+      opts: ['Un 10-15 % por las matrices extra', 'Ninguna: \\(W^{\\prime}\\) tiene el mismo tamaño y el mismo costo que \\(W_0\\)',
+             'Depende del rango r', 'Duplica el tiempo de inferencia'],
+      answer: 1,
+      why: 'Como ambos términos son lineales en \\(x\\), se factoriza \\(x\\) y se guarda una sola matriz \\(W^{\\prime}\\) del mismo tamaño. El modelo resultante tiene exactamente la misma forma, el mismo número de matrices y el mismo costo: <strong>cero latencia añadida</strong>. Esto distingue a LoRA de los adapters de Houlsby, que insertan capas nuevas. Solo si eliges <em>no</em> fusionar —para intercambiar adapters al vuelo— pagas un poco de cómputo.' },
+    { q: 'En DPO, el peso del gradiente es \\(\\sigma(\\hat r_l - \\hat r_w)\\). ¿Qué propiedad le da eso?',
+      opts: ['Hace la pérdida siempre positiva',
+             'Pesa más los pares que el modelo <em>ordena al revés</em> y se apaga en los que ya domina',
+             'Normaliza las log-probabilidades', 'Evita el sobreajuste'],
+      answer: 1,
+      why: 'Cuando el modelo se equivoca, \\(\\hat r_l > \\hat r_w\\), el argumento es positivo y el peso supera 0.5. Cuando ya acierta con holgura, el peso tiende a 0. DPO se concentra automáticamente en los ejemplos que aún no domina, sin que nadie programe un currículo ni pondere el dataset. En el ejemplo del apunte: 0.5275 en el caso mal alineado frente a 0.4651 en el bien alineado.' },
+    { q: '¿Por qué se le da una calculadora a un agente en vez de pedirle que calcule de cabeza?',
+      opts: ['Para ahorrar tokens',
+             'Porque un LLM predice el token más plausible, no ejecuta aritmética: la herramienta es exacta y verificable',
+             'Porque los LLM no entienden números',
+             'Para poder usar modelos más pequeños'],
+      answer: 1,
+      why: 'Un modelo de lenguaje genera la <em>continuación más plausible</em>; para "68.0 × 17" eso suele acertar, pero para "68.0 × 1739" empieza a fallar, y falla con total confianza. Delegar en una herramienta determinista hace el resultado exacto y auditable. El corolario es el de la pestaña 4: si la herramienta falla, el agente debe <strong>decirlo</strong>, no rellenar el hueco con una alucinación.' }
+];
+
+/* ═══════════════ Arranque ═══════════════ */
+Lab.init({
+    classNumber: 6,
+    setup() {
+        $('loraAlpha').addEventListener('input', loraUpdate);
+        $('loraRestore').addEventListener('click', () => {
+            lora.B = [[0.5], [-0.3], [0.2], [0.1]];
+            lora.A = [[0.4, -0.2, 0.3, 0.1]];
+            $('loraAlpha').value = 2;
+            loraUpdate();
+        });
+        $('loraZeroB').addEventListener('click', () => { lora.B = [[0], [0], [0], [0]]; loraUpdate(); });
+        loraUpdate();
+
+        ['lpD', 'lpR', 'lpModel'].forEach(id => $(id).addEventListener('input', lpUpdate));
+        lpUpdate();
+
+        ['lrRank', 'lrKind'].forEach(id => $(id).addEventListener('input', lrUpdate));
+        lrUpdate();
+
+        ['dpoLw', 'dpoRw', 'dpoLl', 'dpoRl', 'dpoBeta'].forEach(id => $(id).addEventListener('input', dpoUpdate));
+        document.querySelectorAll('[data-dpo]').forEach(b => b.addEventListener('click', () => {
+            const good = b.dataset.dpo === 'good';
+            $('dpoLw').value = good ? -2.0 : -3.0;
+            $('dpoRw').value = -2.3;
+            $('dpoLl').value = good ? -3.5 : -2.0;
+            $('dpoRl').value = -2.4;
+            $('dpoBeta').value = 0.1;
+            dpoUpdate();
+        }));
+        dpoUpdate();
+
+        agInit();
+        Lab.quiz('quizBox', QUIZ, '🎯 Compruébalo — Clase 6');
+    }
+});
+})();
+</script>
+</body>
+</html>

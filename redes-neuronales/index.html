@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redes Neuronales Artificiales — Laboratorios Interactivos</title>
+<meta name="description" content="Seis laboratorios interactivos para experimentar con redes neuronales: del perceptrón a los agentes, todo calculado en vivo en el navegador.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/lab.css">
+<style>
+    body {
+        background-image:
+            radial-gradient(circle at 12% 10%, rgba(99, 102, 241, 0.16) 0%, transparent 42%),
+            radial-gradient(circle at 88% 88%, rgba(6, 182, 212, 0.14) 0%, transparent 42%);
+        background-attachment: fixed;
+        padding-bottom: 0;
+    }
+    header { padding: 3.5rem 1.5rem 1.5rem; text-align: center; max-width: 900px; margin: 0 auto; }
+    .badge-pill {
+        display: inline-block; padding: 0.32rem 1rem; border-radius: 9999px;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.2));
+        border: 1px solid rgba(99, 102, 241, 0.35); color: var(--accent-cyan);
+        font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 1.1rem;
+    }
+    header h1 {
+        font-size: clamp(1.9rem, 5vw, 2.8rem); font-weight: 800; line-height: 1.15; margin-bottom: 0.9rem;
+        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 55%, #94a3b8 100%);
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    header .subtitle { font-size: 1.08rem; color: var(--text-sub); max-width: 720px; margin: 0 auto 1.2rem; line-height: 1.6; }
+    .author { font-size: 0.92rem; color: var(--text-muted); font-weight: 500; }
+    .author span { color: var(--accent-indigo); font-weight: 700; }
+
+    .how { max-width: 900px; margin: 0 auto 2.5rem; padding: 0 1.5rem; }
+    .how-inner {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+        padding: 1.2rem 1.4rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1.1rem;
+    }
+    .how-item { font-size: 0.87rem; color: var(--text-sub); line-height: 1.55; }
+    .how-item strong { color: var(--text-main); display: block; margin-bottom: 0.2rem; font-size: 0.9rem; }
+
+    main { max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 1.5rem 2rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 1.6rem; }
+
+    .lab-card {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.6rem;
+        display: flex; flex-direction: column; justify-content: space-between;
+        text-decoration: none; color: inherit; position: relative; overflow: hidden;
+        transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), border-color 0.25s, box-shadow 0.25s;
+    }
+    .lab-card::before {
+        content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+        background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+        opacity: 0; transition: opacity 0.25s;
+    }
+    .lab-card:hover, .lab-card:focus-visible {
+        transform: translateY(-5px); border-color: rgba(99, 102, 241, 0.5);
+        box-shadow: 0 18px 30px -12px rgba(0,0,0,0.55), 0 0 20px rgba(99,102,241,0.16);
+    }
+    .lab-card:hover::before, .lab-card:focus-visible::before { opacity: 1; }
+
+    .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; margin-bottom: 1.1rem; flex-wrap: wrap; }
+    .class-num {
+        font-family: 'Fira Code', monospace; font-size: 0.8rem; font-weight: 700;
+        padding: 0.28rem 0.7rem; border-radius: 8px;
+        background: rgba(99, 102, 241, 0.16); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.32);
+    }
+    .topic-badge { font-size: 0.72rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 0.22rem 0.55rem; border-radius: 6px; }
+    .lab-card h2 { font-size: 1.24rem; font-weight: 700; margin-bottom: 0.6rem; line-height: 1.3; }
+    .lab-card .desc { font-size: 0.89rem; color: var(--text-sub); line-height: 1.55; margin-bottom: 1.2rem; }
+    .mod-list { list-style: none; margin-bottom: 1.3rem; display: flex; flex-direction: column; gap: 0.42rem; }
+    .mod-list li { font-size: 0.83rem; color: var(--text-sub); display: flex; align-items: flex-start; gap: 0.5rem; }
+    .mod-list li::before { content: '▸'; color: var(--accent-cyan); flex-shrink: 0; }
+    .btn-launch {
+        width: 100%; padding: 0.72rem 1rem; border-radius: 10px; font-weight: 700; font-size: 0.88rem;
+        background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(6,182,212,0.2));
+        border: 1px solid rgba(99,102,241,0.4); color: var(--text-main);
+        display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all 0.2s;
+    }
+    .lab-card:hover .btn-launch, .lab-card:focus-visible .btn-launch {
+        background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
+        color: #fff; box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+    }
+    footer { text-align: center; padding: 2.5rem 1.5rem; color: var(--text-muted); font-size: 0.85rem;
+             border-top: 1px solid rgba(255,255,255,0.06); margin-top: 2rem; }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="badge-pill">Laboratorios interactivos</div>
+    <h1>Redes Neuronales Artificiales</h1>
+    <p class="subtitle">
+        Seis módulos para <strong>jugar</strong> con las ideas del curso: entrena un perceptrón hasta verlo
+        fracasar con XOR, desliza un kernel sobre una imagen, abre las compuertas de una LSTM, calcula una
+        matriz de atención completa, entrena un tokenizador BPE sobre tu propio texto y ejecuta un agente
+        con herramientas reales.
+    </p>
+    <div class="author">Curso dictado por <span>Gonzalo Oyanedel V.</span></div>
+</header>
+
+<div class="how">
+    <div class="how-inner">
+        <div class="how-item">
+            <strong>Todo se calcula en vivo</strong>
+            No hay curvas dibujadas a mano ni números escritos de antemano: cada matriz, cada gradiente y
+            cada probabilidad se computa en tu navegador al mover un control.
+        </div>
+        <div class="how-item">
+            <strong>Los números cuadran con el apunte</strong>
+            Los valores por defecto reproducen los ejemplos trabajados de <span class="mono">Clases/</span>,
+            así que puedes verificar cada resultado contra el texto.
+        </div>
+        <div class="how-item">
+            <strong>Cada módulo cierra con un test</strong>
+            La última pestaña de cada laboratorio propone cinco preguntas con retroalimentación que explica
+            el <em>porqué</em>, no solo el qué.
+        </div>
+    </div>
+</div>
+
+<main>
+    <div class="grid">
+
+        <a href="clase01.html" class="lab-card">
+            <div>
+                <div class="card-head">
+                    <span class="class-num">CLASE 01</span>
+                    <span class="topic-badge">Fundamentos y optimización</span>
+                </div>
+                <h2>Fundamentos y descenso de gradiente</h2>
+                <p class="desc">De la neurona al MLP. Fronteras de decisión, el muro del XOR, cuánto gradiente
+                    deja pasar cada activación y la regla de la cadena número por número.</p>
+                <ul class="mod-list">
+                    <li>Perceptrón entrenable — y el fracaso demostrable con XOR</li>
+                    <li>Activaciones, su derivada exacta y el producto de \(L\) capas</li>
+                    <li>Aproximación universal ajustada por mínimos cuadrados</li>
+                    <li>Descenso de gradiente sobre superficies reales, con el umbral \(2/\lambda_{max}\)</li>
+                    <li>Grafo computacional y backpropagation paso a paso</li>
+                </ul>
+            </div>
+            <div class="btn-launch">Abrir laboratorio 1 <span>→</span></div>
+        </a>
+
+        <a href="clase02.html" class="lab-card">
+            <div>
+                <div class="card-head">
+                    <span class="class-num">CLASE 02</span>
+                    <span class="topic-badge">CNN y estabilidad</span>
+                </div>
+                <h2>Convoluciones, normalización, ResNets y optimizadores</h2>
+                <p class="desc">El kernel recorriendo la imagen celda a celda, la diferencia real entre BatchNorm
+                    y LayerNorm, y cuatro optimizadores compitiendo por el mismo valle.</p>
+                <ul class="mod-list">
+                    <li>Convolución 2D con kernel editable, padding y stride</li>
+                    <li>BatchNorm vs LayerNorm con μ y σ calculados por eje</li>
+                    <li>Atajos residuales: el gradiente que muere y el que sobrevive</li>
+                    <li>Carrera SGD / Momentum / RMSProp / Adam, con corrección de sesgo</li>
+                </ul>
+            </div>
+            <div class="btn-launch">Abrir laboratorio 2 <span>→</span></div>
+        </a>
+
+        <a href="clase03.html" class="lab-card">
+            <div>
+                <div class="card-head">
+                    <span class="class-num">CLASE 03</span>
+                    <span class="topic-badge">Secuencias y embeddings</span>
+                </div>
+                <h2>Secuencias y espacios latentes</h2>
+                <p class="desc">Una RNN con números de verdad, las compuertas de LSTM y GRU decidiendo qué
+                    recordar, y el espacio semántico recorrido con sumas y restas.</p>
+                <ul class="mod-list">
+                    <li>Estado oculto propagándose paso a paso</li>
+                    <li>Compuertas LSTM y GRU, con vida media de la memoria</li>
+                    <li>BPTT: en qué paso exacto se desvanece (o explota) el gradiente</li>
+                    <li>Analogías vectoriales y matriz de similitud por coseno</li>
+                </ul>
+            </div>
+            <div class="btn-launch">Abrir laboratorio 3 <span>→</span></div>
+        </a>
+
+        <a href="clase04.html" class="lab-card">
+            <div>
+                <div class="card-head">
+                    <span class="class-num">CLASE 04</span>
+                    <span class="topic-badge">Atención y Transformers</span>
+                </div>
+                <h2>Mecanismos de atención y Transformers</h2>
+                <p class="desc">\(Q\), \(K\), \(V\), los puntajes, el softmax y la mezcla, calculados a partir
+                    de matrices que puedes editar. Incluye el recorrido completo de un Transformer.</p>
+                <ul class="mod-list">
+                    <li>Self-attention editable, con máscara causal y verificación de filas</li>
+                    <li>Por qué \(\sqrt{d_k}\): la entropía del softmax en función de la dimensión</li>
+                    <li>Multi-head con arcos proporcionales a los pesos reales</li>
+                    <li>Positional encoding: matriz, ondas y decaimiento por distancia</li>
+                    <li>"La capital de ___ es …" — los ocho pasos, ejecutados</li>
+                </ul>
+            </div>
+            <div class="btn-launch">Abrir laboratorio 4 <span>→</span></div>
+        </a>
+
+        <a href="clase05.html" class="lab-card">
+            <div>
+                <div class="card-head">
+                    <span class="class-num">CLASE 05</span>
+                    <span class="topic-badge">Modelos de lenguaje</span>
+                </div>
+                <h2>Modelos de lenguaje y decodificación</h2>
+                <p class="desc">Un entrenador de BPE que fusiona pares sobre el texto que escribas, un modelo
+                    de lenguaje real y los tres mandos de decodificación implementados como en las librerías.</p>
+                <ul class="mod-list">
+                    <li>BPE real: cuenta pares, fusiona y comprime tu propio texto</li>
+                    <li>Generación autorregresiva con probabilidades contadas de un corpus</li>
+                    <li>Temperatura, top-k y top-p (núcleo correcto) con muestreo empírico</li>
+                    <li>Entropía y perplejidad, arrastrando la distribución con la mano</li>
+                </ul>
+            </div>
+            <div class="btn-launch">Abrir laboratorio 5 <span>→</span></div>
+        </a>
+
+        <a href="clase06.html" class="lab-card">
+            <div>
+                <div class="card-head">
+                    <span class="class-num">CLASE 06</span>
+                    <span class="topic-badge">Adaptación, alineación y agentes</span>
+                </div>
+                <h2>LoRA, alineación DPO y agentes</h2>
+                <p class="desc">Las matrices de LoRA multiplicadas de verdad (con la comprobación de que fusionar
+                    no cambia nada), la pérdida DPO sin factores inventados y un agente cuyas herramientas se ejecutan.</p>
+                <ul class="mod-list">
+                    <li>LoRA paso a paso, con \(A\) y \(B\) editables y verificación del <em>merge</em></li>
+                    <li>Aproximación de bajo rango real, con su espectro de valores singulares</li>
+                    <li>DPO: pérdida, recompensa implícita y por qué el gradiente se apaga solo</li>
+                    <li>Agente ReAct con calculadora y búsqueda que funcionan — y que puedes romper</li>
+                </ul>
+            </div>
+            <div class="btn-launch">Abrir laboratorio 6 <span>→</span></div>
+        </a>
+
+    </div>
+</main>
+
+<footer>
+    <p>Redes Neuronales Artificiales · Material didáctico interactivo · Complemento de
+       <span class="mono">Clases/</span> y <span class="mono">Notebooks/</span></p>
+</footer>
+
+<script src="assets/lab.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="initKaTeX()"></script>
+</body>
+</html>

@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clase 04 — Atención y Transformers | Laboratorio RNA</title>
+<meta name="description" content="Laboratorio interactivo: scaled dot-product attention calculada de verdad, multi-head, positional encoding y el recorrido completo de un Transformer.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<link rel="stylesheet" href="assets/lab.css">
+<script src="assets/lab.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="initKaTeX()"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+    .header-box h1 { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); -webkit-background-clip: text; background-clip: text; }
+    .edit-cell input { width: 100%; height: 100%; background: transparent; border: none; color: inherit;
+                       text-align: center; font-family: 'Fira Code', monospace; font-size: 0.74rem; font-weight: 600; padding: 0; }
+    .pipe-step { background: var(--bg-inset); border-left: 3px solid var(--accent-indigo); border-radius: 0 8px 8px 0;
+                 padding: 0.7rem 0.9rem; margin-bottom: 0.6rem; font-size: 0.86rem; }
+    .pipe-step h4 { font-size: 0.82rem; color: var(--accent-cyan); margin-bottom: 0.3rem; letter-spacing: 0.02em; }
+    .pipe-step .mono { font-size: 0.82rem; }
+    .stage-nav { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+
+<nav>
+    <a href="index.html" class="nav-brand"><span>&larr;</span> Laboratorio RNA</a>
+    <div class="nav-links"></div>
+</nav>
+
+<div class="container" id="main">
+    <div class="header-box">
+        <h1>Clase 04 — Atención y Transformers</h1>
+        <p>Aquí no hay matrices de adorno: \(Q\), \(K\), \(V\), los puntajes, el softmax y la mezcla se calculan
+           de verdad a partir de las matrices que puedes editar. Los valores por defecto reproducen, número a
+           número, los ejemplos trabajados del apunte.</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn" data-tab="tab1">1 · Self-attention paso a paso</button>
+        <button class="tab-btn" data-tab="tab2">2 · Multi-head</button>
+        <button class="tab-btn" data-tab="tab3">3 · Positional encoding</button>
+        <button class="tab-btn" data-tab="tab4">4 · Recorrido completo</button>
+        <button class="tab-btn" data-tab="tab5">5 · Compruébalo</button>
+    </div>
+
+    <!-- ══════════════ TAB 1 ══════════════ -->
+    <div id="tab1" class="tab-content">
+        <div class="card">
+            <div class="card-title">\( \text{Attention}(Q,K,V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V \)</div>
+            <p class="card-sub">Tres tokens, embeddings de dimensión 2. <strong>Todas las casillas son editables.</strong>
+                Los valores de fábrica son los del ejemplo trabajado 4.2.6 del apunte, así que puedes comprobar cada
+                número contra el texto.</p>
+
+            <div class="stage-nav" id="attnStages"></div>
+
+            <div class="controls mb-2">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="attnScale">
+                            <span><input type="checkbox" id="attnScale" checked style="width:auto;margin-right:.4rem">
+                            Escalar por \(\sqrt{d_k}\)</span>
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label for="attnMask">
+                            <span><input type="checkbox" id="attnMask" style="width:auto;margin-right:.4rem">
+                            Máscara causal (decodificador)</span>
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label for="attnPreset">Preset</label>
+                        <select id="attnPreset">
+                            <option value="apunte">Ejemplo 4.2.6 del apunte</option>
+                            <option value="identity">W_K = W_Q — cada token se mira a sí mismo</option>
+                            <option value="sharp">Puntajes grandes — softmax casi one-hot</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div>
+                    <div class="matrix-caption">Embeddings de entrada \(X\) (3×2)</div>
+                    <div id="mX"></div>
+                    <div class="mt-2" style="display:flex;gap:1rem;flex-wrap:wrap">
+                        <div><div class="matrix-caption">\(W_Q\)</div><div id="mWQ"></div></div>
+                        <div><div class="matrix-caption">\(W_K\)</div><div id="mWK"></div></div>
+                        <div><div class="matrix-caption">\(W_V\)</div><div id="mWV"></div></div>
+                    </div>
+                    <div class="mt-2" style="display:flex;gap:1rem;flex-wrap:wrap">
+                        <div><div class="matrix-caption">\(Q = XW_Q\)</div><div id="mQ"></div></div>
+                        <div><div class="matrix-caption">\(K = XW_K\)</div><div id="mK"></div></div>
+                        <div><div class="matrix-caption">\(V = XW_V\)</div><div id="mV"></div></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="matrix-caption" id="capScores"></div>
+                    <div id="mScores"></div>
+                    <div class="matrix-caption mt-2">Pesos de atención \(A = \text{softmax}(\cdot)\) — cada fila suma 1</div>
+                    <div id="mAttn"></div>
+                    <div id="attnBar" style="max-width:260px"></div>
+                    <div class="matrix-caption mt-2">Salida \(Z = AV\) (3×2)</div>
+                    <div id="mZ"></div>
+                </div>
+            </div>
+
+            <div class="readout mt-3" id="attnDetail"></div>
+            <div class="note mt-2" id="attnNote"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">¿Por qué dividir por \(\sqrt{d_k}\)?</div>
+            <div class="grid-2">
+                <div>
+                    <p class="card-sub">Si \(q\) y \(k\) tienen componentes independientes de varianza 1, el producto
+                        punto \(q\cdot k\) tiene varianza \(d_k\): <strong>crece con la dimensión</strong>. Puntajes
+                        grandes empujan al softmax hacia un one-hot, donde su gradiente es casi cero — y el modelo
+                        deja de aprender. Dividir por \(\sqrt{d_k}\) devuelve la varianza a 1.</p>
+                    <div class="controls">
+                        <div class="control-group">
+                            <label for="dkSlider">Dimensión de las llaves \(d_k\) <output id="v_dk">64</output></label>
+                            <input type="range" id="dkSlider" min="2" max="512" step="2" value="64">
+                        </div>
+                    </div>
+                    <div class="stat-row mt-2">
+                        <div class="stat"><div class="stat-label">Puntaje típico</div><div class="stat-value" id="dkScore">—</div>
+                            <div class="stat-hint">desviación ≈ √d_k sin escalar</div></div>
+                        <div class="stat"><div class="stat-label">Entropía del softmax</div><div class="stat-value" id="dkEnt">—</div>
+                            <div class="stat-hint">bits, sin escalar</div></div>
+                        <div class="stat"><div class="stat-label">Con escalado</div><div class="stat-value" id="dkEntS">—</div>
+                            <div class="stat-hint">bits, tras dividir por √d_k</div></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="chart-box" style="height:250px"><canvas id="dkCanvas"></canvas></div>
+                    <p class="fig-note">Distribución de atención sobre 8 llaves con puntajes aleatorios típicos de esa
+                        \(d_k\). Sin escalar, una sola llave se lo lleva todo y las demás quedan en cero: gradiente
+                        nulo para todas ellas.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 2 ══════════════ -->
+    <div id="tab2" class="tab-content">
+        <div class="card">
+            <div class="card-title">Varias cabezas, varias relaciones a la vez</div>
+            <p class="card-sub">Cada cabeza tiene sus <em>propias</em> \(W_Q, W_K, W_V\), así que aprende un patrón de
+                atención distinto sobre la misma frase. Los arcos salen de la matriz de pesos real: el grosor y la
+                opacidad son proporcionales a \(\alpha_{ij}\).
+                <span class="pill warn">patrones ilustrativos</span> — en un modelo real estos roles <em>emergen</em>
+                del entrenamiento y rara vez son tan limpios.</p>
+
+            <div class="btn-group mb-2" id="headBtns"></div>
+
+            <div class="grid-2 wide-left">
+                <div>
+                    <canvas id="headCanvas" data-ratio="0.34" aria-label="Arcos de atención entre los tokens de la frase"></canvas>
+                    <p class="fig-note">Los arcos van <strong>desde</strong> el token que consulta <strong>hacia</strong>
+                        el token atendido. Pasa el ratón por la matriz de la derecha para resaltar una fila.</p>
+                    <div class="matrix-caption mt-2">Suma de todas las cabezas (lo que ve la capa siguiente)</div>
+                    <div id="mHeadAll"></div>
+                </div>
+                <div>
+                    <div class="matrix-caption" id="capHead"></div>
+                    <div id="mHead"></div>
+                    <div id="headBar" style="max-width:240px"></div>
+                    <div class="readout mt-2" id="headDetail"></div>
+                </div>
+            </div>
+
+            <div class="note mt-2">
+                <strong>Por qué varias cabezas y no una más grande.</strong> Una sola distribución de atención tiene que
+                elegir: o sigue la concordancia sujeto–verbo, o resuelve el pronombre, o mira al vecino. Con \(h\)
+                cabezas de dimensión \(d_{model}/h\) cada una, el <em>costo total es el mismo</em> pero el modelo puede
+                mantener varias relaciones abiertas a la vez y concatenar los resultados.
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 3 ══════════════ -->
+    <div id="tab3" class="tab-content">
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">La matriz de codificación posicional</div>
+                <p class="card-sub">\( PE_{(pos,2i)} = \sin\!\left(\frac{pos}{10000^{2i/d}}\right), \quad
+                    PE_{(pos,2i+1)} = \cos\!\left(\frac{pos}{10000^{2i/d}}\right) \)</p>
+                <div id="peMatrix"></div>
+                <div id="peBar" style="max-width:280px"></div>
+                <p class="fig-note">Una fila por posición, una columna por dimensión. Las columnas de la izquierda
+                    (alta frecuencia) cambian en cada paso: distinguen vecinos. Las de la derecha (baja frecuencia)
+                    apenas se mueven: distinguen regiones lejanas.</p>
+            </div>
+            <div class="card">
+                <div class="card-title">Ondas y distancia relativa</div>
+                <div class="controls mb-2">
+                    <div class="control-row">
+                        <div class="control-group">
+                            <label for="peD">Dimensión \(d\) <output id="v_peD">16</output></label>
+                            <input type="range" id="peD" min="4" max="64" step="2" value="16">
+                        </div>
+                        <div class="control-group">
+                            <label for="pePos1">Posición 1 <output id="v_pePos1">2</output></label>
+                            <input type="range" id="pePos1" min="0" max="24" step="1" value="2">
+                        </div>
+                        <div class="control-group">
+                            <label for="pePos2">Posición 2 <output id="v_pePos2">5</output></label>
+                            <input type="range" id="pePos2" min="0" max="24" step="1" value="5">
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-box" style="height:200px"><canvas id="peWaveCanvas"></canvas></div>
+                <div class="readout mt-2" id="peDot"></div>
+                <div class="chart-box mt-2" style="height:190px"><canvas id="peDecayCanvas"></canvas></div>
+                <p class="fig-note">Similitud \(PE_{pos} \cdot PE_{pos+\Delta}\) en función de la separación
+                    \(\Delta\): decae de forma suave y <strong>solo depende de la distancia</strong>, no de la posición
+                    absoluta. Esa es la propiedad que permite al modelo razonar sobre "hace tres palabras".</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">El ejemplo del apunte: tres tokens contiguos con \(d = 4\)</div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>Vector</th><th>dim 0</th><th>dim 1</th><th>dim 2</th><th>dim 3</th><th>Comentario</th></tr></thead>
+                    <tbody id="peTable"></tbody>
+                </table>
+            </div>
+            <div class="note">
+                <strong>La suma no destruye el contenido.</strong> \(x + PE(pos)\) desplaza el embedding a una zona
+                del espacio donde una proyección lineal (\(W_Q\), \(W_K\)) todavía puede leer <em>por separado</em>
+                qué palabra es y en qué posición está. Sin este paso, la atención sería estrictamente invariante a
+                permutaciones: "el perro mordió al hombre" y "el hombre mordió al perro" darían exactamente lo mismo.
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 4 ══════════════ -->
+    <div id="tab4" class="tab-content">
+        <div class="card">
+            <div class="card-title">"La capital de ___ es …" — el recorrido completo, calculado</div>
+            <p class="card-sub">Los ocho pasos del apéndice de la Clase 4, ejecutados de verdad con
+                \(d_{model} = 3\) y un vocabulario de 8 palabras. Cambia el país y observa lo que <em>no</em>
+                cambia: la fila de atención es idéntica. Lo que cambia es el <strong>contenido</strong> que viaja.</p>
+
+            <div class="controls mb-2">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="pipeCountry">País en el prompt</label>
+                        <select id="pipeCountry">
+                            <option value="0.90">Francia — identidad +0.90</option>
+                            <option value="-0.90">Italia — identidad −0.90</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="pipeId">Identidad del país (dim 1) <output id="v_pipeId">0.90</output></label>
+                        <input type="range" id="pipeId" min="-1" max="1" step="0.05" value="0.90">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div id="pipeSteps"></div>
+                <div>
+                    <div class="matrix-caption">Fila de atención de "es" sobre los 5 tokens</div>
+                    <div id="pipeAttn"></div>
+                    <div class="chart-box mt-3" style="height:230px"><canvas id="pipeLogits"></canvas></div>
+                    <p class="fig-note">Distribución final sobre el vocabulario de 8 palabras. Las seis palabras
+                        "resto" comparten el mismo vector de salida nulo, así que reciben todas el mismo logit 0.</p>
+                    <div class="stat-row mt-2">
+                        <div class="stat"><div class="stat-label">Predicción</div><div class="stat-value" id="pipePred">—</div></div>
+                        <div class="stat"><div class="stat-label">Probabilidad</div><div class="stat-value" id="pipeProb">—</div></div>
+                        <div class="stat"><div class="stat-label">Pérdida si acierta</div><div class="stat-value" id="pipeLoss">—</div>
+                            <div class="stat-hint">−ln p</div></div>
+                    </div>
+                    <div class="note mt-2" id="pipeNote"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ TAB 5 ══════════════ -->
+    <div id="tab5" class="tab-content">
+        <div id="quizBox"></div>
+        <div class="card">
+            <div class="card-title">Para seguir jugando</div>
+            <ul class="small text-sub" style="padding-left:1.2rem; display:flex; flex-direction:column; gap:0.4rem">
+                <li>En la 1, activa la máscara causal: la fila del token 1 pasa a ser (1, 0, 0) — sin nada que mirar salvo a sí mismo, el softmax no tiene elección.</li>
+                <li>Desactiva el escalado por \(\sqrt{d_k}\) con el preset "puntajes grandes": el softmax colapsa a one-hot y el gradiente se apaga.</li>
+                <li>Pon \(W_K = W_Q\) (preset 2): la diagonal domina y cada token se mira a sí mismo. Las proyecciones aprendidas existen para poder romper eso.</li>
+                <li>En la 4, arrastra la identidad del país hasta 0: el modelo queda genuinamente indeciso entre París y Roma, ambas con la misma probabilidad.</li>
+                <li>En la 4, pon la identidad en −0.90 y compara: \(p(\text{Roma}) \approx 0.34\), no 0.38. La asimetría es real y el apunte explica por qué.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<footer class="lab-footer"></footer>
+
+<script>
+(function () {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const fmt = Lab.fmt;
+const MM = Lab.M;
+
+/* ─── rejilla de matriz editable ─── */
+function editable(container, M, onChange, opts) {
+    opts = opts || {};
+    if (typeof container === 'string') container = document.getElementById(container);
+    container.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'matrix';
+    grid.style.gridTemplateColumns = `repeat(${M[0].length}, auto)`;
+    const maxAbs = Math.max(0.5, ...M.flat().map(Math.abs));
+    M.forEach((row, r) => row.forEach((v, c) => {
+        const cell = document.createElement('div');
+        cell.className = 'matrix-cell sm edit-cell';
+        const anyNeg = M.some(rr => rr.some(x => x < 0));
+        const bg = anyNeg ? Lab.divColor(v, maxAbs) : Lab.seqColor(Math.abs(v) / maxAbs);
+        cell.style.background = bg;
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.value = fmt(v, opts.digits === undefined ? 2 : opts.digits).replace(/\.00$/, '');
+        inp.style.color = Lab.inkOn(bg);
+        inp.setAttribute('aria-label', `fila ${r + 1} columna ${c + 1}`);
+        inp.addEventListener('change', () => {
+            const nv = parseFloat(inp.value.replace(',', '.'));
+            M[r][c] = isFinite(nv) ? nv : 0;
+            onChange();
+        });
+        cell.appendChild(inp);
+        grid.appendChild(cell);
+    }));
+    container.appendChild(grid);
+}
+
+/* ═══════════════ TAB 1 · Self-attention ═══════════════ */
+const PRESETS = {
+    apunte:   { X: [[1,0],[0,1],[1,1]], WQ: [[1,0],[0,1]], WK: [[0,1],[1,0]], WV: [[1,1],[0,1]] },
+    identity: { X: [[1,0],[0,1],[1,1]], WQ: [[1,0],[0,1]], WK: [[1,0],[0,1]], WV: [[1,1],[0,1]] },
+    sharp:    { X: [[3,0],[0,3],[3,3]], WQ: [[1,0],[0,1]], WK: [[0,1],[1,0]], WV: [[1,1],[0,1]] }
+};
+const at = { X: null, WQ: null, WK: null, WV: null, stage: 'ALL', hoverRow: -1 };
+const TOKENS3 = ['x₁', 'x₂', 'x₃'];
+const STAGES = [
+    ['ALL', 'Todo'], ['QKV', '1 · Proyecciones Q, K, V'], ['DOT', '2 · Puntajes QKᵀ'],
+    ['SCALE', '3 · Escalar ÷√dₖ'], ['SOFT', '4 · Softmax'], ['OUT', '5 · Mezcla AV']
+];
+
+function loadPreset(name) {
+    const p = PRESETS[name];
+    at.X = p.X.map(r => r.slice());
+    at.WQ = p.WQ.map(r => r.slice());
+    at.WK = p.WK.map(r => r.slice());
+    at.WV = p.WV.map(r => r.slice());
+    attnUpdate();
+}
+
+function attnUpdate() {
+    const X = at.X, dk = at.WQ[0].length;
+    const Q = MM.mul(X, at.WQ), K = MM.mul(X, at.WK), V = MM.mul(X, at.WV);
+    const raw = MM.mul(Q, MM.T(K));
+    const useScale = $('attnScale').checked;
+    const scaled = raw.map(r => r.map(v => useScale ? v / Math.sqrt(dk) : v));
+    const causal = $('attnMask').checked;
+    const A = scaled.map((row, i) =>
+        Lab.softmax(row.map((v, j) => (causal && j > i) ? -Infinity : v)));
+    const Z = MM.mul(A, V);
+
+    editable('mX', at.X, attnUpdate);
+    editable('mWQ', at.WQ, attnUpdate);
+    editable('mWK', at.WK, attnUpdate);
+    editable('mWV', at.WV, attnUpdate);
+
+    const st = at.stage;
+    const dim = (want) => (st !== 'ALL' && st !== want) ? 0.35 : 1;
+    ['mQ', 'mK', 'mV'].forEach(id => $(id).style.opacity = dim('QKV'));
+    $('mScores').style.opacity = (st === 'ALL' || st === 'DOT' || st === 'SCALE') ? 1 : 0.35;
+    $('mAttn').style.opacity = (st === 'ALL' || st === 'SOFT') ? 1 : 0.35;
+    $('mZ').style.opacity = (st === 'ALL' || st === 'OUT') ? 1 : 0.35;
+
+    const opt = { scale: 'auto', digits: 2, small: true, rowLabels: TOKENS3 };
+    Lab.heatmap('mQ', Q, { ...opt, colLabels: ['q₁', 'q₂'] });
+    Lab.heatmap('mK', K, { ...opt, colLabels: ['k₁', 'k₂'] });
+    Lab.heatmap('mV', V, { ...opt, colLabels: ['v₁', 'v₂'] });
+
+    const showScaled = (st === 'SCALE' || st === 'ALL' || st === 'SOFT');
+    const S = showScaled ? scaled : raw;
+    $('capScores').innerHTML = showScaled && useScale
+        ? `Puntajes escalados \\(QK^\\top/\\sqrt{${dk}}\\)` : `Puntajes \\(QK^\\top\\) sin escalar`;
+    Lab.renderMath($('capScores'));
+
+    Lab.heatmap('mScores', S, {
+        scale: 'auto', digits: 3, small: true, rowLabels: TOKENS3, colLabels: TOKENS3,
+        mask: (r, c) => causal && c > r,
+        tooltip: (r, c, v) => `q${r + 1}·k${c + 1} = ${fmt(raw[r][c], 3)}${useScale ? ` → ÷√${dk} = ${fmt(scaled[r][c], 3)}` : ''}`
+    });
+
+    Lab.heatmap('mAttn', A, {
+        scale: 'seq', max: 1, digits: 3, small: true, rowLabels: TOKENS3, colLabels: TOKENS3,
+        mask: (r, c) => causal && c > r,
+        cellClass: (r) => (at.hoverRow === r ? 'hl-row' : ''),
+        tooltip: (r, c, v) => `α[${r + 1}][${c + 1}] = ${fmt(v, 4)} — el token ${r + 1} dedica el ${fmt(v * 100, 1)} % de su atención al token ${c + 1}`
+    });
+    Lab.colorbar('attnBar', 0, 1, 'seq');
+    Lab.heatmap('mZ', Z, { scale: 'auto', digits: 3, small: true, rowLabels: ['z₁', 'z₂', 'z₃'], colLabels: ['dim 1', 'dim 2'] });
+
+    // Detalle numérico de la fila 3 (la más interesante del ejemplo)
+    const r = 2;
+    const terms = A[r].map((a, j) => `${fmt(a, 3)}·(${V[j].map(v => fmt(v, 0)).join(',')})`);
+    const sums = A.map(row => row.reduce((s, v) => s + v, 0));
+    $('attnDetail').innerHTML =
+        `<strong>Fila del token 3 (que atiende a todos)</strong><br>` +
+        `puntajes: [${raw[r].map(v => fmt(v, 2)).join(', ')}]` +
+        (useScale ? ` &nbsp;→ ÷√${dk} → [${scaled[r].map(v => fmt(v, 3)).join(', ')}]` : ' <span style="color:var(--warn)">(sin escalar)</span>') + `<br>` +
+        `softmax → α₃ = [<strong>${A[r].map(v => fmt(v, 3)).join(', ')}</strong>] &nbsp; (suma = ${fmt(sums[r], 4)})<br>` +
+        `z₃ = ${terms.join(' + ')} = <strong>(${Z[r].map(v => fmt(v, 3)).join(', ')})</strong><br><br>` +
+        `<span class="text-sub">Comprobación de filas: ${sums.map((s, i) => `fila ${i + 1} = ${fmt(s, 4)}`).join(' · ')}</span> ` +
+        `<span class="pill ok">todas suman 1</span>`;
+
+    // Comparación con el apunte cuando la configuración coincide
+    const isApunte = JSON.stringify([at.X, at.WQ, at.WK, at.WV]) === JSON.stringify([PRESETS.apunte.X, PRESETS.apunte.WQ, PRESETS.apunte.WK, PRESETS.apunte.WV]) && useScale && !causal;
+    const n = $('attnNote');
+    if (isApunte) {
+        n.className = 'note';
+        n.innerHTML = `<strong>Coincide con el apunte.</strong> El texto de 4.2.6 da
+            α₁ = (0.198, 0.401, 0.401), α₃ = (0.248, 0.248, 0.503) y z₃ = (0.751, 1.502).
+            Aquí sale α₁ = (${A[0].map(v => fmt(v, 3)).join(', ')}) y z₃ = (${Z[2].map(v => fmt(v, 3)).join(', ')}).
+            Fíjate en el efecto de \\(W_K\\), que intercambia coordenadas: el token 1 tiene puntaje <em>0</em>
+            consigo mismo y 1 con los demás, así que se interesa por los otros. Con \\(W_K = W_Q\\) cada token se
+            miraría sobre todo a sí mismo — prueba el preset 2.`;
+    } else if (causal) {
+        n.className = 'note';
+        n.innerHTML = `<strong>Máscara causal activa.</strong> Las posiciones futuras reciben \\(-\\infty\\) <em>antes</em>
+            del softmax, así que su peso sale exactamente 0 (no "casi 0"). El token 1 solo puede mirarse a sí mismo,
+            por eso su fila es (1, 0, 0). Esto es lo que convierte un encoder en un decoder: sin la máscara, predecir
+            el siguiente token sería trivial, porque el modelo ya lo tendría a la vista.`;
+    } else if (!useScale) {
+        n.className = 'note warn';
+        n.innerHTML = `<strong>Sin escalar.</strong> Los puntajes entran crudos al softmax. Con \\(d_k\\) pequeño
+            apenas se nota, pero mira el preset "puntajes grandes": la atención colapsa en un único token y el
+            gradiente del softmax se desvanece — el modelo deja de poder ajustar a quién mira.`;
+    } else {
+        n.className = 'note';
+        n.innerHTML = `<strong>Estás editando la configuración.</strong> Cada fila de \\(A\\) sigue sumando 1 pase lo
+            que pase: eso lo garantiza el softmax. Lo que cambias es <em>cómo</em> se reparte esa unidad de atención.
+            Vuelve al preset del apunte para comparar con el texto.`;
+    }
+    Lab.renderMath(n);
+
+    // Resalte de fila al pasar por la matriz de atención
+    document.querySelectorAll('#mAttn .matrix-cell').forEach((cell, k) => {
+        const row = Math.floor(k / 3);
+        cell.addEventListener('mouseenter', () => { at.hoverRow = row; attnHighlight(); });
+        cell.addEventListener('mouseleave', () => { at.hoverRow = -1; attnHighlight(); });
+    });
+}
+
+function attnHighlight() {
+    document.querySelectorAll('#mAttn .matrix-cell').forEach((cell, k) => {
+        cell.classList.toggle('hl-row', at.hoverRow >= 0 && Math.floor(k / 3) === at.hoverRow);
+    });
+}
+
+/* --- Por qué √dk --- */
+function dkUpdate() {
+    const dk = +$('dkSlider').value;
+    $('v_dk').textContent = dk;
+    const rand = Lab.rng(4242);
+    const n = 8;
+    // q·k con componentes N(0,1): media 0, varianza d_k → desviación √d_k
+    const scores = Array.from({ length: n }, () => Lab.gauss(rand) * Math.sqrt(dk));
+    const pRaw = Lab.softmax(scores);
+    const pScaled = Lab.softmax(scores.map(v => v / Math.sqrt(dk)));
+
+    $('dkScore').textContent = '±' + fmt(Math.sqrt(dk), 1);
+    $('dkEnt').textContent = fmt(Lab.entropyBits(pRaw), 2);
+    $('dkEntS').textContent = fmt(Lab.entropyBits(pScaled), 2);
+    $('dkEnt').style.color = Lab.entropyBits(pRaw) < 0.5 ? 'var(--bad)' : 'var(--text-main)';
+
+    Lab.chart('dkCanvas', {
+        type: 'bar',
+        data: {
+            labels: Array.from({ length: n }, (_, i) => 'k' + (i + 1)),
+            datasets: [
+                { label: `sin escalar (d_k = ${dk})`, data: pRaw, backgroundColor: 'var(--series-2)' },
+                { label: 'con ÷√d_k', data: pScaled, backgroundColor: 'var(--series-1)' }
+            ]
+        },
+        options: { scales: { y: { max: 1, title: { display: true, text: 'peso de atención', color: '#94a3b8' } } } }
+    });
+}
+
+/* ═══════════════ TAB 2 · Multi-head ═══════════════ */
+const SENT = ['El', 'gato', 'durmió', 'porque', 'estaba', 'cansado'];
+// Puntajes por cabeza (logits). El softmax los convierte en distribuciones reales por fila.
+const HEAD_SCORES = {
+    1: { name: 'Sujeto → verbo', desc: 'Conecta cada verbo con el sustantivo que lo rige. La fila de "durmió" apunta a "gato".',
+         f: (i, j) => (i === 2 && j === 1) ? 4 : (i === 4 && j === 1 ? 2.5 : (i === j ? 0.5 : 0)) },
+    2: { name: 'Coreferencia', desc: '"estaba" y "cansado" se refieren al mismo sujeto: sus filas apuntan a "gato".',
+         f: (i, j) => ((i === 4 || i === 5) && j === 1) ? 4 : (i === j ? 0.6 : 0) },
+    3: { name: 'Ventana local', desc: 'Cada token mira a su vecino inmediato: es lo que haría una convolución 1D.',
+         f: (i, j) => Math.abs(i - j) === 1 ? 3 : (i === j ? 1.5 : -1) },
+    4: { name: 'Mirada global', desc: 'Atención difusa hacia todo el pasado: mantiene el contexto general de la frase.',
+         f: (i, j) => j <= i ? 1 : 0 }
+};
+let curHead = 1;
+
+function headMatrix(h) {
+    const n = SENT.length;
+    return Array.from({ length: n }, (_, i) =>
+        Lab.softmax(Array.from({ length: n }, (_, j) => HEAD_SCORES[h].f(i, j))));
+}
+
+function headUpdate() {
+    const A = headMatrix(curHead);
+    const info = HEAD_SCORES[curHead];
+
+    $('headBtns').innerHTML = Object.keys(HEAD_SCORES).map(h =>
+        `<button class="btn btn-sm${+h === curHead ? '' : ' btn-outline'}" data-h="${h}">Cabeza ${h}: ${HEAD_SCORES[h].name}</button>`).join('');
+    $('headBtns').querySelectorAll('[data-h]').forEach(b =>
+        b.addEventListener('click', () => { curHead = +b.dataset.h; headUpdate(); }));
+
+    $('capHead').textContent = `Pesos de la cabeza ${curHead} — filas: quién consulta, columnas: a quién`;
+    Lab.heatmap('mHead', A, {
+        scale: 'seq', max: 1, digits: 2, small: true, rowLabels: SENT, colLabels: SENT,
+        tooltip: (r, c, v) => `"${SENT[r]}" dedica el ${fmt(v * 100, 1)} % de su atención a "${SENT[c]}"`
+    });
+    Lab.colorbar('headBar', 0, 1, 'seq');
+
+    // Promedio de las 4 cabezas
+    const all = [1, 2, 3, 4].map(headMatrix);
+    const avg = A.map((row, i) => row.map((_, j) => all.reduce((s, M) => s + M[i][j], 0) / 4));
+    Lab.heatmap('mHeadAll', avg, {
+        scale: 'seq', max: Math.max(...avg.flat()), digits: 2, small: true, rowLabels: SENT, colLabels: SENT,
+        tooltip: (r, c, v) => `promedio de las 4 cabezas: ${fmt(v, 3)}`
+    });
+
+    const top = A.map((row, i) => {
+        const j = row.indexOf(Math.max(...row));
+        return `"${SENT[i]}" → "${SENT[j]}" (${fmt(row[j] * 100, 0)} %)`;
+    });
+    $('headDetail').innerHTML = `<strong>${info.name}</strong><br>${info.desc}<br><br>` +
+        `<span class="text-sub">Destino principal de cada fila:</span><br>` + top.join('<br>');
+
+    headDraw(A);
+}
+
+function headDraw(A) {
+    const c = Lab.fitCanvas('headCanvas', () => headUpdate());
+    if (!c) return;
+    const { ctx, W, H } = c;
+    ctx.clearRect(0, 0, W, H);
+    const n = SENT.length;
+    const gap = W / (n + 1), yb = H - 34;
+
+    // Arcos: opacidad y grosor proporcionales al peso real
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        const w = A[i][j];
+        if (i === j || w < 0.08) continue;
+        const x1 = gap * (i + 1), x2 = gap * (j + 1);
+        const h = yb - Math.min(yb - 12, 28 + Math.abs(x2 - x1) * 0.55);
+        ctx.strokeStyle = `rgba(57,135,229,${Lab.clamp(w * 1.5, 0.12, 0.95)})`;
+        ctx.lineWidth = Math.max(1, w * 9);
+        ctx.beginPath();
+        ctx.moveTo(x1, yb - 10);
+        ctx.quadraticCurveTo((x1 + x2) / 2, h, x2, yb - 10);
+        ctx.stroke();
+    }
+    // Autoatención: un pequeño lazo
+    for (let i = 0; i < n; i++) {
+        const w = A[i][i];
+        if (w < 0.12) continue;
+        const x = gap * (i + 1);
+        ctx.strokeStyle = `rgba(25,158,112,${Lab.clamp(w * 1.4, 0.15, 0.9)})`;
+        ctx.lineWidth = Math.max(1, w * 6);
+        ctx.beginPath(); ctx.arc(x, yb - 16, 9, 0.15 * Math.PI, 0.85 * Math.PI, true); ctx.stroke();
+    }
+
+    SENT.forEach((t, i) => {
+        const x = gap * (i + 1);
+        ctx.beginPath(); ctx.arc(x, yb - 10, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#3987e5'; ctx.fill();
+        ctx.fillStyle = '#f8fafc'; ctx.font = '600 13px Inter'; ctx.textAlign = 'center';
+        ctx.fillText(t, x, yb + 16);
+    });
+}
+
+/* ═══════════════ TAB 3 · Positional encoding ═══════════════ */
+const PEval = (pos, i, d) => (i % 2 === 0)
+    ? Math.sin(pos / Math.pow(10000, i / d))
+    : Math.cos(pos / Math.pow(10000, (i - 1) / d));
+
+const PEvec = (pos, d) => Array.from({ length: d }, (_, i) => PEval(pos, i, d));
+
+function peUpdate() {
+    const d = +$('peD').value, p1 = +$('pePos1').value, p2 = +$('pePos2').value;
+    $('v_peD').textContent = d; $('v_pePos1').textContent = p1; $('v_pePos2').textContent = p2;
+
+    const NPOS = 20;
+    const M = Array.from({ length: NPOS }, (_, p) => PEvec(p, d));
+    Lab.heatmap('peMatrix', M, {
+        scale: 'div', max: 1, digits: 1, small: true, showValues: d <= 16,
+        rowLabels: Array.from({ length: NPOS }, (_, p) => 'pos ' + p),
+        colLabels: Array.from({ length: d }, (_, i) => String(i)),
+        cellClass: (r) => (r === p1 || r === p2) ? 'hl-row' : '',
+        tooltip: (r, c, v) => `PE(pos=${r}, dim=${c}) = ${fmt(v, 4)}`
+    });
+    Lab.colorbar('peBar', -1, 1, 'div');
+
+    // Ondas de cuatro dimensiones representativas
+    const dims = [0, 1, Math.floor(d / 4) * 2, Math.max(2, d - 2)];
+    const xs = Array.from({ length: 41 }, (_, p) => p);
+    Lab.chart('peWaveCanvas', {
+        type: 'line',
+        data: {
+            labels: xs.map(String),
+            datasets: dims.map((i, k) => ({
+                label: `dim ${i}`, data: xs.map(p => PEval(p, i, d)),
+                borderColor: `var(--series-${k + 1})`
+            }))
+        },
+        options: {
+            scales: { x: { title: { display: true, text: 'posición', color: '#94a3b8' },
+                           ticks: { callback: (v, i) => (i % 5 === 0 ? String(i) : '') } },
+                      y: { min: -1.1, max: 1.1 } }
+        }
+    });
+
+    const v1 = PEvec(p1, d), v2 = PEvec(p2, d);
+    const dot = MM.dot(v1, v2) / d;
+    $('peDot').innerHTML =
+        `\\(PE_{${p1}} \\cdot PE_{${p2}}\\) (normalizado por d = ${d}) = <strong>${fmt(dot, 4)}</strong><br>` +
+        `Separación \\(\\Delta = |${p1} - ${p2}| = ${Math.abs(p1 - p2)}\\)<br>` +
+        `<span class="text-sub">Coseno entre ambos vectores: ${fmt(MM.cosine(v1, v2), 4)}</span>`;
+    Lab.renderMath($('peDot'));
+
+    // La similitud solo depende de Δ: se comprueba desde tres posiciones base distintas
+    const deltas = Array.from({ length: 21 }, (_, k) => k);
+    Lab.chart('peDecayCanvas', {
+        type: 'line',
+        data: {
+            labels: deltas.map(String),
+            datasets: [0, 5, 12].map((base, k) => ({
+                label: `desde pos ${base}`,
+                data: deltas.map(dd => MM.dot(PEvec(base, d), PEvec(base + dd, d)) / d),
+                borderColor: `var(--series-${k + 1})`,
+                borderDash: k ? [4, 3] : []
+            }))
+        },
+        options: {
+            scales: { x: { title: { display: true, text: 'separación Δ', color: '#94a3b8' } },
+                      y: { title: { display: true, text: 'similitud', color: '#94a3b8' } } }
+        }
+    });
+
+    // Tabla del apunte con d = 4
+    const rows = [1, 2, 3].map(p => {
+        const v = PEvec(p, 4);
+        return `<tr><td class="mono">PE(${p})</td>` + v.map(x => `<td class="num">${fmt(x, 3)}</td>`).join('') +
+               `<td class="small text-sub">${p === 1 ? 'las dims 0–1 giran rápido; las 2–3, casi nada' : ''}</td></tr>`;
+    });
+    rows.push(`<tr><td colspan="6" style="border:none;height:6px"></td></tr>`);
+    const xs4 = [[0.332, -0.832, -0.120, 0.429], [-0.271, 0.503, 0.618, -0.095], [0.184, -0.347, 0.256, 0.601]];
+    xs4.forEach((x, k) => {
+        const v = PEvec(k + 1, 4);
+        rows.push(`<tr><td class="mono">x${k + 1} + PE(${k + 1})</td>` +
+            x.map((xv, i) => `<td class="num">${fmt(xv + v[i], 3)}</td>`).join('') +
+            `<td class="small text-sub">${k === 1 ? 'sigue pareciéndose a x₂: se desplazó, no se destruyó' : ''}</td></tr>`);
+    });
+    $('peTable').innerHTML = rows.join('');
+}
+
+/* ═══════════════ TAB 4 · Recorrido completo ═══════════════ */
+const VOCAB = ['La', 'capital', 'de', 'Francia', 'Italia', 'es', 'París', 'Roma'];
+const PROMPT = ['La', 'capital', 'de', '«país»', 'es'];
+const EMB = {
+    La:      [0.03, 0.02, -0.02],
+    capital: [-0.02, -0.03, 0.03],
+    de:      [0.02, 0.01, -0.01],
+    es:      [0.01, -0.02, 0.90]
+};
+const W_Q = [[0, 0, 0], [0, 0, 0], [0, 1, 0]];
+const W_K = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const W_V = [[1, 0, 0], [0, 0, 0], [0, 0, 0]];
+const FFN1 = [[4, -4], [0, 0], [0, 0]];
+const FFN2 = [[1, 0, 0], [-1, 0, 0]];
+const UNEMB = { 'París': [1, 0, 0], 'Roma': [-1, 0, 0] };
+
+function pipeUpdate() {
+    const id = +$('pipeId').value;
+    $('v_pipeId').textContent = fmt(id, 2);
+
+    const X = [EMB.La, EMB.capital, EMB.de, [id, 0.85, 0.05], EMB.es];
+    const Q = MM.mul(X, W_Q), K = MM.mul(X, W_K), V = MM.mul(X, W_V);
+    const dk = 3, sq = Math.sqrt(dk);
+
+    const qEs = Q[4];
+    const rawScores = K.map(k => MM.dot(qEs, k));
+    const scScores = rawScores.map(v => v / sq);
+    const alpha = Lab.softmax(scScores);
+
+    const z = [0, 1, 2].map(c => alpha.reduce((s, a, j) => s + a * V[j][c], 0));
+    const h = EMB.es.map((v, i) => v + z[i]);
+    const pre = MM.matVec(MM.T(FFN1), h);
+    const act = pre.map(Lab.relu);
+    const ffn = MM.matVec(MM.T(FFN2), act);
+    const out = h.map((v, i) => v + ffn[i]);
+
+    const logits = VOCAB.map(w => UNEMB[w] ? MM.dot(out, UNEMB[w]) : 0);
+    const probs = Lab.softmax(logits);
+    const best = probs.indexOf(Math.max(...probs));
+
+    const label = (t) => t === '«país»' ? (id >= 0 ? 'Francia' : 'Italia') : t;
+    Lab.heatmap('pipeAttn', [alpha], {
+        scale: 'seq', max: Math.max(...alpha), digits: 3, small: true,
+        rowLabels: ['α de "es"'], colLabels: PROMPT.map(label),
+        tooltip: (r, c, v) => `"es" dedica el ${fmt(v * 100, 1)} % de su atención a "${label(PROMPT[c])}"`
+    });
+
+    const paisTok = label('«país»');
+    $('pipeSteps').innerHTML = `
+      <div class="pipe-step"><h4>PASO 1 · EMBEDDINGS</h4>
+        <span class="mono">x_${paisTok} = (${fmt(id, 2)}, 0.85, 0.05)</span> ← dim 1 = qué país, dim 2 = "soy un país"<br>
+        <span class="mono">x_es = (0.01, −0.02, 0.90)</span> ← dim 3 = "pido completar"</div>
+
+      <div class="pipe-step"><h4>PASO 2 · PROYECCIONES</h4>
+        <span class="mono">q_es = (0, 0.90, 0)</span> → pregunta "¿hay un país por aquí?"<br>
+        <span class="mono">k_${paisTok} = (${fmt(id, 2)}, 0.85, 0.05)</span> → se anuncia como país<br>
+        <span class="mono">v_${paisTok} = (${fmt(id, 2)}, 0, 0)</span> → entrega <em>cuál</em> país</div>
+
+      <div class="pipe-step"><h4>PASO 3 · PUNTAJES ÷√3</h4>
+        <span class="mono">[${rawScores.map(v => fmt(v, 3)).join(', ')}]</span><br>
+        <span class="mono">→ [${scScores.map(v => fmt(v, 3)).join(', ')}]</span></div>
+
+      <div class="pipe-step"><h4>PASO 4 · SOFTMAX</h4>
+        <span class="mono">α = [${alpha.map(v => fmt(v, 3)).join(', ')}]</span><br>
+        suma = ${fmt(alpha.reduce((a, b) => a + b, 0), 4)} ✓ &nbsp;·&nbsp;
+        <strong>${fmt(alpha[3] * 100, 1)} %</strong> va al país</div>
+
+      <div class="pipe-step"><h4>PASO 5 · MEZCLA DE VALUES</h4>
+        <span class="mono">z_es = (${z.map(v => fmt(v, 3)).join(', ')})</span></div>
+
+      <div class="pipe-step"><h4>PASO 6 · RESIDUAL</h4>
+        <span class="mono">h_es = x_es + z_es = (${h.map(v => fmt(v, 3)).join(', ')})</span><br>
+        dim 3 = 0.90 intacta: "es" sigue siendo "es"</div>
+
+      <div class="pipe-step"><h4>PASO 7 · FFN (2 neuronas + ReLU)</h4>
+        pre-activación <span class="mono">(${pre.map(v => fmt(v, 3)).join(', ')})</span> →
+        ReLU <span class="mono">(${act.map(v => fmt(v, 3)).join(', ')})</span><br>
+        <span class="mono">out_es = (${out.map(v => fmt(v, 3)).join(', ')})</span> ← señal amplificada</div>
+
+      <div class="pipe-step" style="border-left-color:var(--series-5)"><h4>PASO 8 · LOGITS Y SOFTMAX</h4>
+        <span class="mono">logit(París) = ${fmt(logits[6], 3)} &nbsp; logit(Roma) = ${fmt(logits[7], 3)}</span><br>
+        <span class="mono">logit(resto) = 0</span> (seis palabras)</div>`;
+
+    Lab.chart('pipeLogits', {
+        type: 'bar',
+        data: {
+            labels: VOCAB,
+            datasets: [{
+                label: 'probabilidad',
+                data: probs,
+                backgroundColor: VOCAB.map((w, i) => i === best ? 'var(--series-5)' : (UNEMB[w] ? 'var(--series-1)' : '#334155'))
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false },
+                       tooltip: { callbacks: { label: (c) => `p = ${fmt(c.parsed.y, 4)} · logit = ${fmt(logits[c.dataIndex], 3)}` } } },
+            scales: { y: { max: 0.6, title: { display: true, text: 'probabilidad', color: '#94a3b8' } } }
+        }
+    });
+
+    $('pipePred').textContent = VOCAB[best];
+    $('pipePred').style.color = 'var(--series-5)';
+    $('pipeProb').textContent = fmt(probs[best] * 100, 1) + ' %';
+    $('pipeLoss').textContent = fmt(-Math.log(probs[best]), 3);
+
+    const n = $('pipeNote');
+    if (Math.abs(id) < 0.12) {
+        n.className = 'note warn';
+        n.innerHTML = `<strong>El modelo está indeciso.</strong> Con identidad ≈ 0 el token del país no dice
+            <em>cuál</em> país es, solo que "hay un país". La atención funciona igual —el puntaje viene de la dim 2,
+            que sigue valiendo 0.85— pero el value que viaja es casi nulo, así que París y Roma quedan empatadas.
+            Separar el "a quién miro" del "qué me llevo" es exactamente lo que hacen las keys y los values.`;
+    } else {
+        n.className = 'note';
+        n.innerHTML = `<strong>Las keys deciden el cableado; los values, el contenido.</strong> Cambia el país y verás
+            que la fila de atención <em>no se mueve</em>: la key sigue diciendo "soy un país" (dim 2 = 0.85), así que
+            "es" le dedica el mismo ${fmt(alpha[3] * 100, 1)} %. Lo único que cambia es el value que viaja por ese
+            cable. Misma red, mismos pesos, respuesta opuesta.`;
+    }
+}
+
+/* ═══════════════ TAB 5 · Quiz ═══════════════ */
+const QUIZ = [
+    { q: '¿Por qué se divide por \\(\\sqrt{d_k}\\) antes del softmax?',
+      opts: ['Para que los pesos sumen 1', 'Porque el producto punto tiene varianza \\(d_k\\): sin dividir, los puntajes crecen con la dimensión y el softmax se satura',
+             'Para ahorrar memoria', 'Para que la máscara causal funcione'],
+      answer: 1,
+      why: 'Con componentes de varianza 1, \\(q\\cdot k\\) suma \\(d_k\\) términos independientes, así que su desviación típica es \\(\\sqrt{d_k}\\). Con \\(d_k=64\\) los puntajes rondan ±8, y \\(e^8\\) frente a \\(e^{-8}\\) da un softmax prácticamente one-hot — donde el gradiente es casi nulo y el modelo no puede aprender a quién mirar. Dividir devuelve la varianza a 1. Que las filas sumen 1 lo garantiza el softmax, con o sin escalado.' },
+    { q: 'En la self-attention del apunte, \\(W_K\\) intercambia las coordenadas. ¿Qué consigue eso?',
+      opts: ['Que la matriz sea invertible',
+             'Que la key de cada token quede "cruzada" respecto de su query, de modo que los tokens se interesen por los <em>otros</em> y no por sí mismos',
+             'Reducir el número de parámetros', 'Aplicar la máscara causal'],
+      answer: 1,
+      why: 'Con \\(W_K = W_Q\\), \\(q_i \\cdot k_i = \\|q_i\\|^2\\) es el puntaje más alto de la fila: cada token se mira sobre todo a sí mismo, lo cual no comunica nada. El "cruce" hace que \\(q_1\\cdot k_1 = 0\\) y \\(q_1\\cdot k_2 = 1\\). Las proyecciones se <em>aprenden</em> precisamente para poder romper la autoatención trivial. Compruébalo con el preset 2.' },
+    { q: 'La máscara causal pone \\(-\\infty\\) en las posiciones futuras. ¿Por qué \\(-\\infty\\) y no 0?',
+      opts: ['Por eficiencia de cómputo',
+             'Porque se aplica <em>antes</em> del softmax: \\(e^{-\\infty} = 0\\) da peso exactamente nulo, mientras que un 0 daría \\(e^0 = 1\\), un peso considerable',
+             'Para evitar divisiones por cero', 'Es indiferente'],
+      answer: 1,
+      why: 'La máscara actúa sobre los <em>logits</em>, no sobre los pesos. Poner 0 como puntaje daría \\(e^0 = 1\\) — un peso perfectamente competitivo. Solo \\(-\\infty\\) (en la práctica, −1e9) garantiza que tras el softmax el peso sea 0 exacto y que el resto de la fila se renormalice correctamente para seguir sumando 1.' },
+    { q: 'Sin positional encoding, ¿qué le pasa a un Transformer?',
+      opts: ['No puede procesar secuencias largas',
+             'Es invariante a permutaciones: "el perro mordió al hombre" y "el hombre mordió al perro" dan el mismo resultado',
+             'El gradiente se desvanece', 'Solo funciona con una cabeza'],
+      answer: 1,
+      why: 'Ningún paso de la self-attention mira el índice: si permutas las entradas, salen las mismas salidas permutadas. Es una bolsa de palabras con pesos. El PE se suma a los embeddings <em>antes</em> del primer bloque para que \\(W_Q\\) y \\(W_K\\) puedan leer posición y contenido por separado. Y como la similitud entre \\(PE_{pos}\\) y \\(PE_{pos+\\Delta}\\) depende solo de \\(\\Delta\\), el modelo puede razonar sobre distancias relativas.' },
+    { q: 'En el recorrido completo, cambias Francia por Italia. ¿Qué cambia en la atención?',
+      opts: ['La fila de atención se invierte',
+             'Nada: la key de Italia tiene el mismo "soy un país" (dim 2 = 0.85), así que los pesos son idénticos — lo que cambia es el <em>value</em>',
+             '"es" deja de atender al país', 'Cambia el número de tokens'],
+      answer: 1,
+      why: 'Es la lección central del ejemplo. La <strong>key</strong> decide el cableado ("¿hay un país aquí?" → sí, dim 2 = 0.85 en ambos), y el <strong>value</strong> decide el contenido que viaja (+0.90 para Francia, −0.90 para Italia). Los pesos de atención no se mueven; lo que llega por el cable es lo opuesto, y la FFN activa el otro detector. Misma red, respuesta contraria.' }
+];
+
+/* ═══════════════ Arranque ═══════════════ */
+Lab.init({
+    classNumber: 4,
+    setup() {
+        $('attnStages').innerHTML = STAGES.map(([k, l]) =>
+            `<button class="btn btn-sm${k === 'ALL' ? '' : ' btn-outline'}" data-stage="${k}">${l}</button>`).join('');
+        $('attnStages').addEventListener('click', (e) => {
+            const b = e.target.closest('[data-stage]'); if (!b) return;
+            at.stage = b.dataset.stage;
+            $('attnStages').querySelectorAll('button').forEach(x => x.className = 'btn btn-sm' + (x === b ? '' : ' btn-outline'));
+            attnUpdate();
+        });
+        $('attnScale').addEventListener('change', attnUpdate);
+        $('attnMask').addEventListener('change', attnUpdate);
+        $('attnPreset').addEventListener('change', () => loadPreset($('attnPreset').value));
+        loadPreset('apunte');
+
+        $('dkSlider').addEventListener('input', dkUpdate);
+        dkUpdate();
+
+        headUpdate();
+
+        ['peD', 'pePos1', 'pePos2'].forEach(id => $(id).addEventListener('input', peUpdate));
+        peUpdate();
+
+        $('pipeCountry').addEventListener('change', () => { $('pipeId').value = $('pipeCountry').value; pipeUpdate(); });
+        $('pipeId').addEventListener('input', pipeUpdate);
+        pipeUpdate();
+
+        Lab.quiz('quizBox', QUIZ, '🎯 Compruébalo — Clase 4');
+    }
+});
+})();
+</script>
+</body>
+</html>
