@@ -1,5 +1,4 @@
 $icon-transition-time: 1.0s;
-$twitter-color: #00aced;
 $github-color: #343434;
 $linkedin-color: #0073a4;
 
@@ -10,11 +9,6 @@ $linkedin-color: #0073a4;
   &:hover{
     color: $color;
   }
-}
-
-.fa-twitter {
-  padding: 5px;
-  @include social-media-icon($twitter-color, $icon-transition-time);
 }
 
 .fa-github {
